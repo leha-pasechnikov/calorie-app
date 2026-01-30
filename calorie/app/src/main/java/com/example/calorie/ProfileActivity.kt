@@ -257,11 +257,15 @@ class ProfileActivity : AppCompatActivity() {
     }
 
     private fun openPrivacyPolicy() {
-        openUrl("https://yourdomain.com/privacy-policy")
+        startActivity(Intent(this, LegalActivity::class.java).apply {
+            putExtra(LegalActivity.EXTRA_HTML_FILE, "privacy_policy.html")
+        })
     }
 
     private fun openTerms() {
-        openUrl("https://yourdomain.com/terms-of-service")
+        startActivity(Intent(this, LegalActivity::class.java).apply {
+            putExtra(LegalActivity.EXTRA_HTML_FILE, "terms_of_service.html")
+        })
     }
 
     private fun openUrl(url: String) {
