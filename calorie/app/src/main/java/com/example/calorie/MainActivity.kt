@@ -1,13 +1,62 @@
 package com.example.calorie
 
+import android.content.Intent
 import android.os.Bundle
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import com.example.calorie.databinding.ActivityMainBinding
+import com.google.gson.Gson
+import java.io.File
+import android.content.Context
+import com.google.gson.reflect.TypeToken
+
+// Модель данных
+data class UserData(
+    var gender: String = "Мужской",
+    var age: Int = 30,
+    var height: Int = 180,
+    var weight: Int = 75,
+    var targetWeight: Int = 70,
+    var targetDate: String = "01.06.2026",
+    var caloriesGoal: Int = 2200,
+    var proteinGoal: Int = 120,
+    var fatGoal: Int = 70,
+    var carbsGoal: Int = 300,
+    var waterGoal: Int = 2000
+)
 
 class MainActivity : AppCompatActivity() {
+    companion object {
+        var userData = UserData()
+        private const val DATA_FILE = "user_data.json"
 
+        fun saveData(context: Context) {
+            val json = Gson().toJson(userData)
+            val file = File(context.filesDir, DATA_FILE)
+            file.writeText(json)
+        }
+
+        fun loadData(context: Context) {
+            val file = File(context.filesDir, DATA_FILE)
+            if (file.exists()) {
+                try {
+                    val json = file.readText()
+
+                    // Вариант 1: Использовать TypeToken (рекомендуется)
+                    val type = object : TypeToken<UserData>() {}.type
+                    userData = Gson().fromJson(json, type)
+
+                    // Или Вариант 2: Явно указать класс
+                    // userData = Gson().fromJson(json, UserData::class.java)
+
+                } catch (e: Exception) {
+                    e.printStackTrace()
+                    userData = UserData() // Восстановление по умолчанию при ошибке
+                }
+            }
+        }
+    }
     private lateinit var binding: ActivityMainBinding
 
     private val homeFragment = HomeFragment()
@@ -19,6 +68,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        loadData(this)
+
         binding = ActivityMainBinding.inflate(layoutInflater)
         setContentView(binding.root)
 
@@ -45,8 +96,8 @@ class MainActivity : AppCompatActivity() {
         binding.btnWorkout.setOnClickListener {
             switchFragment(profileFragment)
         }
-        binding.btnSetting.setOnClickListener {
-            Toast.makeText(this, "Открытие личного кабинета", Toast.LENGTH_SHORT).show()
+        binding.btnProfile.setOnClickListener {
+            startActivity(Intent(this, ProfileActivity::class.java))
         }
     }
 

@@ -48,6 +48,7 @@ dependencies {
     implementation(libs.material.v1120)
     implementation(libs.mpandroidchart)
     implementation(libs.androidx.recyclerview)
+    implementation(libs.gson)
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
