@@ -1,17 +1,35 @@
+# Android Studio / IntelliJ IDEA
+.idea/
 *.iml
-.gradle
+*.iws
+*.ipr
+
+# Gradle
+.gradle/
+gradle-app.setting
+
+# Build
+build/
 **/build/
 *.apk
-/local.properties
-/.idea/caches
-/.idea/libraries
-/.idea/modules.xml
-/.idea/workspace.xml
-/.idea/navEditor.xml
-/.idea/assetWizardSettings.xml
-.DS_Store
-/build
-/captures
-.externalNativeBuild
-.cxx
+*.aar
+*.ap_
+*.aab
+
+# Local configuration file
 local.properties
+
+# Generated files
+captures/
+.externalNativeBuild/
+.cxx/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Fastlane
+fastlane/report.xml
+fastlane/Preview.html
+fastlane/screenshots
+fastlane/test_output
