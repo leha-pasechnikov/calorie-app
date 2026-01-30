@@ -13,7 +13,7 @@ class MainActivity : AppCompatActivity() {
     private val homeFragment = HomeFragment()
     private val searchFragment = SearchFragment()
     private val analyzeFragment = AnalyzeFragment()
-    private val profileFragment = ProfileFragment()
+    private val profileFragment = WorkoutFragment()
 
     private var currentFragment: Fragment = homeFragment
 
