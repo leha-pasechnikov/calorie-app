@@ -42,11 +42,11 @@ class MainActivity : AppCompatActivity() {
         binding.btnAnalyze.setOnClickListener {
             switchFragment(analyzeFragment)
         }
-        binding.btnProfile.setOnClickListener {
+        binding.btnWorkout.setOnClickListener {
             switchFragment(profileFragment)
         }
         binding.btnSetting.setOnClickListener {
-            Toast.makeText(this, "Открытие настроек", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Открытие личного кабинета", Toast.LENGTH_SHORT).show()
         }
     }
 

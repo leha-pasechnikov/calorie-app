@@ -109,7 +109,7 @@
             android:src="@drawable/ic_analyze" />
 
         <ImageButton
-            android:id="@+id/btn_profile"
+            android:id="@+id/btn_workout"
             android:layout_width="0dp"
             android:layout_height="match_parent"
             android:layout_marginTop="10dp"
