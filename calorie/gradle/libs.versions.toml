@@ -11,9 +11,11 @@ activity = "1.8.0"  # Вместо 1.12.3 - КРИТИЧНО ВАЖНО!
 constraintlayout = "2.1.4"  # Вместо 2.2.1
 materialVersion = "1.12.0"
 mpandroidchart = "v3.1.0"
+recyclerview = "1.3.2"
 
 [libraries]
 androidx-core-ktx = { group = "androidx.core", name = "core-ktx", version.ref = "coreKtx" }
+androidx-recyclerview = { module = "androidx.recyclerview:recyclerview", version.ref = "recyclerview" }
 junit = { group = "junit", name = "junit", version.ref = "junit" }
 androidx-junit = { group = "androidx.test.ext", name = "junit", version.ref = "junitVersion" }
 androidx-espresso-core = { group = "androidx.test.espresso", name = "espresso-core", version.ref = "espressoCore" }
