@@ -11,8 +11,6 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
-import java.text.SimpleDateFormat
-import java.util.Locale
 
 class ProfileActivity : AppCompatActivity() {
 
@@ -34,23 +32,34 @@ class ProfileActivity : AppCompatActivity() {
         // 1. Персональные данные
         addSectionHeader("Персональные данные")
         addSettingItem("Пол", MainActivity.userData.gender) { editGender() }
+        addDivider()
         addSettingItem("Возраст", "${MainActivity.userData.age} лет") { editAge() }
+        addDivider()
         addSettingItem("Рост", "${MainActivity.userData.height} см") { editHeight() }
+        addDivider()
         addSettingItem("Текущий вес", "${MainActivity.userData.weight} кг") { editWeight() }
+        addDivider()
         addSettingItem("Цель по весу", "${MainActivity.userData.targetWeight} кг") { editTargetWeight() }
+        addDivider()
         addSettingItem("Дата цели", MainActivity.userData.targetDate) { editTargetDate() }
 
-        addDivider()
+        // Добавляем отступ между секциями
+        addSectionSpacing()
 
         // 2. Цели по питанию
         addSectionHeader("Цели по питанию")
         addSettingItem("Калории", "${MainActivity.userData.caloriesGoal} ккал") { editCalories() }
+        addDivider()
         addSettingItem("Белки", "${MainActivity.userData.proteinGoal} г") { editProtein() }
+        addDivider()
         addSettingItem("Жиры", "${MainActivity.userData.fatGoal} г") { editFat() }
+        addDivider()
         addSettingItem("Углеводы", "${MainActivity.userData.carbsGoal} г") { editCarbs() }
+        addDivider()
         addSettingItem("Вода", "${MainActivity.userData.waterGoal} мл") { editWater() }
 
-        addDivider()
+        // Добавляем отступ между секциями
+        addSectionSpacing()
 
         // 3. Способ оплаты
         addSectionHeader("Способ оплаты")
@@ -58,25 +67,19 @@ class ProfileActivity : AppCompatActivity() {
             // TODO: открыть экран премиум
         }
 
-        addDivider()
+        // Добавляем отступ между секциями
+        addSectionSpacing()
 
         // 4. Поддержка
         addSectionHeader("Поддержка")
         addSettingItem("Email", "support@calorie.app") { sendEmail() }
+        addDivider()
         addSettingItem("Политика конфиденциальности", "") { openPrivacyPolicy() }
+        addDivider()
         addSettingItem("Пользовательское соглашение", "") { openTerms() }
 
-        addDivider()
-
         // Версия
-        val version = TextView(this).apply {
-            text = "v.0.1"
-            setTextColor(ContextCompat.getColor(this@ProfileActivity, R.color.gray_500))
-            textSize = 12f
-            gravity = android.view.Gravity.CENTER
-            setPadding(0, 32, 0, 32)
-        }
-        settingsContainer.addView(version)
+        addVersion()
     }
 
     override fun onSupportNavigateUp(): Boolean {
@@ -89,7 +92,7 @@ class ProfileActivity : AppCompatActivity() {
             text = title
             setTextAppearance(android.R.style.TextAppearance_Medium)
             setTextColor(ContextCompat.getColor(this@ProfileActivity, R.color.black))
-            setPadding(0, 24, 0, 8)
+            setPadding(dpToPx(16), dpToPx(24), dpToPx(16), dpToPx(8))
         }
         settingsContainer.addView(header)
     }
@@ -101,7 +104,7 @@ class ProfileActivity : AppCompatActivity() {
                 LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT
             )
-            setPadding(0, 16, 0, 16)
+            setPadding(dpToPx(16), dpToPx(12), dpToPx(16), dpToPx(12))
             setBackgroundResource(R.drawable.bg_ripple)
             setOnClickListener { onClick() }
 
@@ -129,11 +132,37 @@ class ProfileActivity : AppCompatActivity() {
             setBackgroundColor(dividerColor)
             layoutParams = LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT,
-                1
-            )
-            setPadding(0, 16, 0, 16)
+                dpToPx(2)
+            ).apply {
+                setMargins(dpToPx(42), 0, dpToPx(42), 0)
+            }
         }
         settingsContainer.addView(divider)
+    }
+
+    private fun addSectionSpacing() {
+        val spacing = android.view.View(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                dpToPx(24)
+            )
+        }
+        settingsContainer.addView(spacing)
+    }
+
+    private fun addVersion() {
+        val version = TextView(this).apply {
+            text = "v.0.1"
+            setTextColor(ContextCompat.getColor(this@ProfileActivity, R.color.gray_500))
+            textSize = 12f
+            gravity = android.view.Gravity.CENTER
+            setPadding(0, dpToPx(32), 0, dpToPx(32))
+        }
+        settingsContainer.addView(version)
+    }
+
+    private fun dpToPx(dp: Int): Int {
+        return (dp * resources.displayMetrics.density).toInt()
     }
 
     // === РЕДАКТИРОВАНИЕ ===
@@ -266,10 +295,5 @@ class ProfileActivity : AppCompatActivity() {
         startActivity(Intent(this, LegalActivity::class.java).apply {
             putExtra(LegalActivity.EXTRA_HTML_FILE, "terms_of_service.html")
         })
-    }
-
-    private fun openUrl(url: String) {
-        val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
-        startActivity(intent)
     }
 }
