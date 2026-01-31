@@ -32,7 +32,7 @@ class HomeFragment : Fragment() {
     private var textWeekRange: TextView? = null
     private var btnPrevWeek: ImageButton? = null
     private var btnNextWeek: ImageButton? = null
-    private var currentMonday: Calendar = getCurrentMonday()
+    private var currentMonday: Calendar = CalendarHelper.getCurrentMonday()
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -93,15 +93,6 @@ class HomeFragment : Fragment() {
 
     @SuppressLint("SetTextI18n")
     private fun refreshWeek() {
-        weekContainer?.removeAllViews()
-
-        val today = GregorianCalendar().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-        }
-
         // Обновляем заголовок недели
         val sunday = GregorianCalendar().apply {
             timeInMillis = currentMonday.timeInMillis
@@ -113,45 +104,31 @@ class HomeFragment : Fragment() {
         val sundayDay = sunday.get(Calendar.DAY_OF_MONTH)
         val sundayMonth = sunday.get(Calendar.MONTH) + 1
 
-        textWeekRange?.text = "$mondayDay.${mondayMonth.toString().padStart(2, '0')} - $sundayDay.${sundayMonth.toString().padStart(2, '0')}"
+        val mondayMonthStr = mondayMonth.toString().padStart(2, '0')
+        val sundayMonthStr = sundayMonth.toString().padStart(2, '0')
 
-        // Создаем 7 дней
-        for (i in 0..6) {
-            val date = GregorianCalendar().apply {
-                timeInMillis = currentMonday.timeInMillis
-                add(Calendar.DAY_OF_MONTH, i)
-            }
+        textWeekRange?.text = "$mondayDay.$mondayMonthStr - $sundayDay.$sundayMonthStr"
 
-            val dayOfMonth = date.get(Calendar.DAY_OF_MONTH)
-            val shortDay = getShortDayName(date.get(Calendar.DAY_OF_WEEK))
-
-            val dayView = layoutInflater.inflate(R.layout.item_day, weekContainer, false).apply {
-                findViewById<TextView>(R.id.textDay).text = shortDay
-                findViewById<TextView>(R.id.textDate).text = "$dayOfMonth"
-
-                // Выделяем сегодняшний день
-                if (isSameDay(date, today)) {
-                    setBackgroundResource(R.drawable.bg_day_selected)
-                }
-            }
-
-            dayView.tag = date.timeInMillis
-
-            dayView.setOnClickListener {
-                // Снимаем выделение со всех дней
-                for (j in 0 until weekContainer!!.childCount) {
-                    weekContainer!!.getChildAt(j).setBackgroundResource(0)
-                }
-                // Выделяем выбранный день
-                it.setBackgroundResource(R.drawable.bg_day_selected)
+        // Генерируем дни через helper
+        CalendarHelper.setupWeek(
+            container = weekContainer!!,
+            inflater = layoutInflater,
+            currentMonday = currentMonday,
+            onDayClick = { date ->
                 updateUIForDate(date)
-            }
-
-            weekContainer?.addView(dayView)
-        }
+            },
+            todayHighlight = true
+        )
 
         // Автоматически выбираем нужный день
-        val dayToSelect = if (isDateInWeek(today, currentMonday)) {
+        val today = GregorianCalendar().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+
+        val dayToSelect = if (CalendarHelper.isDateInWeek(today, currentMonday)) {
             val diff = ((today.timeInMillis - currentMonday.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
             diff.coerceIn(0, 6)
         } else {
