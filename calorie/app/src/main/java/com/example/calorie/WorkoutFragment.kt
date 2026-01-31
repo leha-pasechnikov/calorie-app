@@ -16,6 +16,8 @@ import java.util.Calendar
 import java.util.GregorianCalendar
 import android.widget.ImageView
 
+import com.google.android.material.button.MaterialButton
+
 class WorkoutFragment : Fragment() {
 
     private var currentMonday = CalendarHelper.getCurrentMonday()
@@ -25,6 +27,7 @@ class WorkoutFragment : Fragment() {
     private var textWeekRange: TextView? = null
     private var btnPrevWeek: ImageButton? = null
     private var btnNextWeek: ImageButton? = null
+
 
     // Тестовые данные по дням (ключ = день месяца)
     private val workoutDataByDay = mapOf(
@@ -154,6 +157,11 @@ class WorkoutFragment : Fragment() {
         btnNextWeek?.setOnClickListener {
             currentMonday.add(Calendar.WEEK_OF_YEAR, 1)
             refreshWeek()
+        }
+
+        val btnEditSchedule = view.findViewById<MaterialButton>(R.id.btnEditSchedule)
+        btnEditSchedule.setOnClickListener {
+            startActivity(Intent(requireContext(), EditScheduleActivity::class.java))
         }
 
         refreshWeek()

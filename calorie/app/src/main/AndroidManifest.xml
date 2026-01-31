@@ -21,14 +21,21 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
         <activity
             android:name=".ProfileActivity"
             android:exported="false" />
+
         <activity
             android:name=".LegalActivity"
             android:exported="false" />
+
         <activity
             android:name=".WorkoutDetailActivity"
+            android:exported="false" />
+
+        <activity
+            android:name=".EditScheduleActivity"
             android:exported="false" />
     </application>
 
