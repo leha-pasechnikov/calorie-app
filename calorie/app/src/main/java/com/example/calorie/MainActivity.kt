@@ -65,6 +65,7 @@ class MainActivity : AppCompatActivity() {
     private val profileFragment = WorkoutFragment()
 
     private var currentFragment: Fragment = homeFragment
+    private val REQUEST_CAMERA = 1001
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -80,6 +81,25 @@ class MainActivity : AppCompatActivity() {
         setupBottomNavigation()
     }
 
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == REQUEST_CAMERA && resultCode == RESULT_OK) {
+            val imagePath = data?.getStringExtra("image_path")
+            if (imagePath != null) {
+                // ✅ Успех! Изображение сохранено
+                // Здесь вы можете:
+                // - сохранить путь в SQLite
+                // - показать уведомление
+                // - обновить UI
+                Toast.makeText(this, "Фото сохранено: $imagePath", Toast.LENGTH_LONG).show()
+
+                // Пример: сохранить в глобальную переменную (временно)
+                // MainActivity.lastImagePath = imagePath
+            }
+        }
+    }
+
     private fun setupBottomNavigation() {
         binding.btnHome.setOnClickListener {
             switchFragment(homeFragment)
@@ -87,8 +107,10 @@ class MainActivity : AppCompatActivity() {
         binding.btnSearch.setOnClickListener {
             switchFragment(searchFragment)
         }
+
         binding.btnCamera.setOnClickListener {
-            Toast.makeText(this, "Открытие камеры", Toast.LENGTH_SHORT).show()
+            val intent = Intent(this, CameraActivity::class.java)
+            startActivityForResult(intent, REQUEST_CAMERA)
         }
         binding.btnAnalyze.setOnClickListener {
             switchFragment(analyzeFragment)
