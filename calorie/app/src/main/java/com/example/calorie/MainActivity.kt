@@ -9,7 +9,11 @@ import com.example.calorie.databinding.ActivityMainBinding
 import com.google.gson.Gson
 import java.io.File
 import android.content.Context
+import android.util.Log
+import androidx.lifecycle.lifecycleScope
+import com.example.calorie.data.AppDatabase
 import com.google.gson.reflect.TypeToken
+import kotlinx.coroutines.launch
 
 // Модель данных
 data class UserData(
@@ -79,6 +83,13 @@ class MainActivity : AppCompatActivity() {
             .commit()
 
         setupBottomNavigation()
+
+        // Принудительно инициализировать БД
+        lifecycleScope.launch {
+            val db = AppDatabase.getInstance(this@MainActivity)
+            val client = db.appDao().getClient()
+            Log.d("DB", "Client loaded: $client")
+        }
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
