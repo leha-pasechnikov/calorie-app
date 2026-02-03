@@ -18,6 +18,7 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
 import com.example.calorie.data.AppDatabase
 import com.example.calorie.data.FoodPhotoEntity
 import com.github.mikephil.charting.charts.PieChart
@@ -159,7 +160,7 @@ class HomeFragment : Fragment() {
             val goalProteins = (client?.targetProteins ?: 150.0).toInt()
             val goalFats = (client?.targetFats ?: 70.0).toInt()
             val goalCarbs = (client?.targetCarbs ?: 250.0).toInt()
-            val goalWater = (client?.targetWater ?: 2.5 * 1000).toInt() // л → мл
+            val goalWater = ((client?.targetWater ?: (2.5 * 1000))).toInt() // л → мл
 
             // Обновляем UI
             requireActivity().runOnUiThread {
@@ -200,7 +201,7 @@ class HomeFragment : Fragment() {
             isRotationEnabled = false
             holeRadius = 70f
             transparentCircleRadius = 75f
-            setDrawHoleEnabled(true)
+            isDrawHoleEnabled = true
             setHoleColor(Color.TRANSPARENT)
             maxAngle = 270f
             rotationAngle = 135f
@@ -238,5 +239,57 @@ class HomeFragment : Fragment() {
             addView(createProgressItem("Углеводы", carbs.first, carbs.second))
             addView(createProgressItem("Вода", water.first, water.second))
         }
+    }
+}
+
+class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
+
+    private var photos = listOf<FoodPhotoEntity>()
+
+    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+        private val textName: TextView = itemView.findViewById(R.id.textMealName)
+        private val textNutrients: TextView = itemView.findViewById(R.id.textNutrients)
+        private val imageMeal: ImageView = itemView.findViewById(R.id.imageMeal)
+
+        fun bind(photo: FoodPhotoEntity) {
+            textName.text = photo.name ?: "Блюдо"
+            textNutrients.text = buildString {
+                append("Калории: ${photo.calories ?: 0}\n")
+                append("Белки: ${(photo.proteins ?: 0.0).toInt()} г | ")
+                append("Жиры: ${(photo.fats ?: 0.0).toInt()} г | ")
+                append("Углеводы: ${(photo.carbs ?: 0.0).toInt()} г\n")
+                append("Вода: ${(photo.water ?: 0.0).toInt()} мл")
+            }
+
+            if (photo.photoPath.isNotBlank()) {
+                val cleanPath = photo.photoPath.removePrefix("/") // на случай "/food/today.jpg"
+
+                Glide.with(imageMeal.context)
+                    .load("file:///android_asset/$cleanPath")
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_report_image)
+                    .into(imageMeal)
+            } else {
+                imageMeal.setImageResource(android.R.drawable.ic_menu_gallery)
+            }
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_meal, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(photos[position])
+    }
+
+    override fun getItemCount(): Int = photos.size
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun updatePhotos(newPhotos: List<FoodPhotoEntity>) {
+        photos = newPhotos
+        notifyDataSetChanged()
     }
 }

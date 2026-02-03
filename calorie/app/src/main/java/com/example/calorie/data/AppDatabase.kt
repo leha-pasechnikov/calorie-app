@@ -140,7 +140,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // FOOD PHOTO TODAY
                 dao.insertFoodPhoto(
                     FoodPhotoEntity(
-                        photoPath = "/food/today.jpg",
+                        photoPath = "photo1.jpg",
                         name = "Завтрак",
                         calories = 350,
                         proteins = 25.0,
