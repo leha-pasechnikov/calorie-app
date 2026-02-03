@@ -42,12 +42,6 @@ class MainActivity : AppCompatActivity() {
         // Инициализация БД
         db = AppDatabase.getInstance(this)
 
-        // Загрузка данных клиента (опционально, если нужно в глобальную переменную)
-        lifecycleScope.launch {
-            val client = db.appDao().getClient()
-            // Можно использовать client для инициализации UI
-        }
-
         supportFragmentManager.beginTransaction()
             .add(R.id.contentContainer, homeFragment, "home")
             .commit()

@@ -59,7 +59,7 @@ class ProfileActivity : AppCompatActivity() {
                     targetProteins = 120.0,
                     targetFats = 70.0,
                     targetCarbs = 300.0,
-                    targetWater = 2.0
+                    targetWater = 2000.0
                 )
                 db.appDao().insertClient(client!!)
             }
@@ -98,7 +98,7 @@ class ProfileActivity : AppCompatActivity() {
         addDivider()
         addSettingItem("Углеводы", "${client?.targetCarbs?.toInt() ?: 0} г") { editCarbs() }
         addDivider()
-        addSettingItem("Вода", "${(client?.targetWater ?: 0.0).toInt() * 1000} мл") { editWater() }
+        addSettingItem("Вода", "${(client?.targetWater ?: 0.0).toInt()} мл") { editWater() }
 
         addSectionSpacing()
 
@@ -307,8 +307,8 @@ class ProfileActivity : AppCompatActivity() {
         buildUI()
     }
 
-    private fun editWater() = editNumberField("Вода (мл)", (client?.targetWater ?: 0.0).toInt() * 1000) { value ->
-        client = client?.copy(targetWater = value / 1000.0)
+    private fun editWater() = editNumberField("Вода (мл)", (client?.targetWater ?: 0.0).toInt()) { value ->
+        client = client?.copy(targetWater = value.toDouble())
         saveClient()
         buildUI()
     }

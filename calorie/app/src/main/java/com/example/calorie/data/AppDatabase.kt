@@ -8,6 +8,7 @@ import androidx.sqlite.db.SupportSQLiteDatabase
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.LocalDate
 import java.time.LocalDateTime
 
@@ -51,6 +52,24 @@ abstract class AppDatabase : RoomDatabase() {
         private val context: Context
     ) : Callback() {
 
+        private fun copyAssetToInternalStorage(context: Context, assetName: String): String {
+            val folder = File(context.filesDir, "CalorieFolder")
+            if (!folder.exists()) folder.mkdirs()
+
+            val outFile = File(folder, assetName)
+
+            if (!outFile.exists()) {
+                context.assets.open(assetName).use { input ->
+                    outFile.outputStream().use { output ->
+                        input.copyTo(output)
+                    }
+                }
+            }
+
+            return outFile.absolutePath
+        }
+
+
         @RequiresApi(Build.VERSION_CODES.O)
         override fun onCreate(db: SupportSQLiteDatabase) {
             super.onCreate(db)
@@ -62,6 +81,17 @@ abstract class AppDatabase : RoomDatabase() {
 
                 val today = LocalDate.now()
                 val tomorrow = today.plusDays(1)
+
+                // 📁 Создаём папку
+                val folder = File(context.filesDir, "CalorieFolder")
+                if (!folder.exists()) folder.mkdirs()
+                // 🖼 Копируем картинки
+                val photo1Path = copyAssetToInternalStorage(context, "photo1.jpg")
+                val image1Path = copyAssetToInternalStorage(context, "image1.webp")
+                val image2Path = copyAssetToInternalStorage(context, "image2.webp")
+                val image3Path = copyAssetToInternalStorage(context, "image3.jpg")
+                val image4Path = copyAssetToInternalStorage(context, "image4.jpg")
+                val image5Path = copyAssetToInternalStorage(context, "image5.jpg")
 
                 // CLIENT
                 dao.insertClient(
@@ -77,7 +107,7 @@ abstract class AppDatabase : RoomDatabase() {
                         targetProteins = 150.0,
                         targetFats = 70.0,
                         targetCarbs = 250.0,
-                        targetWater = 2.5
+                        targetWater = 2500.0
                     )
                 )
 
@@ -140,7 +170,7 @@ abstract class AppDatabase : RoomDatabase() {
                 // FOOD PHOTO TODAY
                 dao.insertFoodPhoto(
                     FoodPhotoEntity(
-                        photoPath = "photo1.jpg",
+                        photoPath = photo1Path,
                         name = "Завтрак",
                         calories = 350,
                         proteins = 25.0,
@@ -158,7 +188,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DishEntity(
                         name = "Омлет с овощами",
                         description = "Омлет с болгарским перцем, помидорами и зеленью",
-                        photoPath = "image1.webp", // ← путь к asset
+                        photoPath = image1Path, // ← путь к asset
                         calories = 350,
                         proteins = 28.0,
                         fats = 22.0,
@@ -169,7 +199,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DishEntity(
                         name = "Куриная грудка с гречкой",
                         description = "Запеченная куриная грудка с гречневой кашей",
-                        photoPath = "image2.webp",
+                        photoPath = image2Path,
                         calories = 420,
                         proteins = 45.0,
                         fats = 8.0,
@@ -180,7 +210,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DishEntity(
                         name = "Творог с бананом",
                         description = "Обезжиренный творог с бананом и медом",
-                        photoPath = "image3.jpg",
+                        photoPath = image3Path,
                         calories = 280,
                         proteins = 35.0,
                         fats = 2.0,
@@ -191,7 +221,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DishEntity(
                         name = "Салат Цезарь",
                         description = "Классический салат Цезарь с курицей",
-                        photoPath = "image4.jpg",
+                        photoPath = image4Path,
                         calories = 320,
                         proteins = 25.0,
                         fats = 18.0,
@@ -202,7 +232,7 @@ abstract class AppDatabase : RoomDatabase() {
                     DishEntity(
                         name = "Лосось на пару с брокколи",
                         description = "Филе лосося на пару с отварной брокколи",
-                        photoPath = "image5.jpg",
+                        photoPath = image5Path,
                         calories = 380,
                         proteins = 35.0,
                         fats = 22.0,

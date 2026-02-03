@@ -18,6 +18,7 @@ import com.example.calorie.data.DishEntity
 import com.example.calorie.databinding.FragmentSearchBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
+import java.io.File
 
 class SearchFragment : Fragment() {
 
@@ -83,7 +84,7 @@ class SearchFragment : Fragment() {
         text.text = dish.description ?: "Описание отсутствует"
 
         Glide.with(this)
-            .load("file:///android_asset/${dish.photoPath}")
+            .load(dish.photoPath?.let { File(it) })
             .placeholder(android.R.drawable.ic_menu_gallery)
             .error(android.R.drawable.ic_menu_report_image)
             .into(image)
@@ -116,7 +117,7 @@ class DishAdapter(
 
             if (!dish.photoPath.isNullOrBlank()) {
                 Glide.with(itemView.context)
-                    .load("file:///android_asset/${dish.photoPath}")
+                    .load(File(dish.photoPath))
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .error(android.R.drawable.ic_menu_report_image)
                     .into(imageView)

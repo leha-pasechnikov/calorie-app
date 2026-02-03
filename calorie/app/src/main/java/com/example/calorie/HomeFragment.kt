@@ -26,6 +26,7 @@ import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
 import kotlinx.coroutines.launch
+import java.io.File
 import java.time.LocalDate
 import java.util.Calendar
 import java.util.GregorianCalendar
@@ -262,10 +263,8 @@ class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
             }
 
             if (photo.photoPath.isNotBlank()) {
-                val cleanPath = photo.photoPath.removePrefix("/") // на случай "/food/today.jpg"
-
                 Glide.with(imageMeal.context)
-                    .load("file:///android_asset/$cleanPath")
+                    .load(File(photo.photoPath))
                     .placeholder(android.R.drawable.ic_menu_gallery)
                     .error(android.R.drawable.ic_menu_report_image)
                     .into(imageMeal)
