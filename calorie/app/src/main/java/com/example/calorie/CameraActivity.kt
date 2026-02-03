@@ -27,8 +27,11 @@ import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
+import java.text.SimpleDateFormat
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
+import java.util.Date
+import java.util.Locale
 
 class CameraActivity : AppCompatActivity() {
 
@@ -240,7 +243,14 @@ class CameraActivity : AppCompatActivity() {
     private fun saveToDatabase(imagePath: String) {
         CoroutineScope(Dispatchers.IO).launch {
             val db = AppDatabase.getInstance(this@CameraActivity)
-            val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val selectedDateStr = CalendarHelper.getSelectedDateString("yyyy-MM-dd HH:mm:ss")
+
+            val createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault())
+                .format(Date())
+
+            val takenDatetime = selectedDateStr ?: createdAt
+
+
             val photo = FoodPhotoEntity(
                 photoPath = imagePath,
                 name = "Новое блюдо",
@@ -250,8 +260,8 @@ class CameraActivity : AppCompatActivity() {
                 carbs = 0.0,
                 water = 0.0,
                 weight = 0.0,
-                takenDatetime = now,
-                createdAt = now
+                takenDatetime = takenDatetime,
+                createdAt = createdAt
             )
             db.appDao().insertFoodPhoto(photo)
         }

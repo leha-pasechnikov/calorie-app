@@ -1,15 +1,14 @@
 package com.example.calorie
 
 import android.view.LayoutInflater
-import android.view.View
 import android.widget.LinearLayout
 import android.widget.TextView
-import androidx.core.content.ContextCompat
 import java.util.Calendar
 import java.util.GregorianCalendar
 
 object CalendarHelper {
 
+    private var selectedDate: Calendar? = null
     /**
      * Заполняет контейнер 7 днями недели, начиная с понедельника
      * @param container — LinearLayout, куда добавлять дни
@@ -18,6 +17,8 @@ object CalendarHelper {
      * @param onDayClick — обработчик нажатия на день
      * @param todayHighlight — если true, выделяет сегодняшний день
      */
+
+
     fun setupWeek(
         container: LinearLayout,
         inflater: LayoutInflater,
@@ -26,6 +27,7 @@ object CalendarHelper {
         todayHighlight: Boolean = true
     ) {
         container.removeAllViews()
+        selectedDate = null
 
         val today = if (todayHighlight) {
             GregorianCalendar().apply {
@@ -61,6 +63,7 @@ object CalendarHelper {
                 }
                 // Выделяем текущий
                 it.setBackgroundResource(R.drawable.bg_day_selected)
+                selectedDate = date
                 onDayClick(date)
             }
 
@@ -69,6 +72,16 @@ object CalendarHelper {
     }
 
     // --- Вспомогательные функции ---
+    fun getSelectedDate(): Calendar? {
+        return selectedDate
+    }
+
+    fun getSelectedDateString(format: String = "yyyy-MM-dd"): String? {
+        return selectedDate?.let {
+            val sdf = java.text.SimpleDateFormat(format, java.util.Locale.getDefault())
+            sdf.format(it.time)
+        }
+    }
 
     fun getCurrentMonday(): Calendar {
         val cal = GregorianCalendar().apply {

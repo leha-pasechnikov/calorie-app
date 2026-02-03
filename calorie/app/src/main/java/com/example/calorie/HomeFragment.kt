@@ -161,7 +161,7 @@ class HomeFragment : Fragment() {
             val goalProteins = (client?.targetProteins ?: 150.0).toInt()
             val goalFats = (client?.targetFats ?: 70.0).toInt()
             val goalCarbs = (client?.targetCarbs ?: 250.0).toInt()
-            val goalWater = ((client?.targetWater ?: (2.5 * 1000))).toInt() // л → мл
+            val goalWater = ((client?.targetWater ?: (2500.0))).toInt()
 
             // Обновляем UI
             requireActivity().runOnUiThread {
