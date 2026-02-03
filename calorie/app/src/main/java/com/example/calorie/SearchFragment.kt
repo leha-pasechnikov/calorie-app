@@ -1,33 +1,31 @@
 package com.example.calorie
 
-import Dish
-import DishAdapter
+import android.annotation.SuppressLint
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.TextView
+import androidx.core.widget.addTextChangedListener
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.GridLayoutManager
+import androidx.recyclerview.widget.RecyclerView
+import com.bumptech.glide.Glide
+import com.example.calorie.data.AppDatabase
+import com.example.calorie.data.DishEntity
 import com.example.calorie.databinding.FragmentSearchBinding
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
+import kotlinx.coroutines.launch
 
 class SearchFragment : Fragment() {
 
     private var _binding: FragmentSearchBinding? = null
     private val binding get() = _binding!!
 
-    // Пример данных
-    private val dishes = listOf(
-        Dish(R.drawable.image1, "Картофель, тушенный с мясом и грибами, - популярное блюдо домашней кухни, очень сытное и очень вкусное. Небольшой секрет: если в конце приготовления сдобрить всё сметаной, жаркое получится ещё вкуснее. Сметана превращается в бархатистый соус с лёгкой кислинкой и сливочным послевкусием и прекрасно объединяет все компоненты."),
-        Dish(R.drawable.image2, "Простое, но очень ароматное и вкусное блюдо для семейного обеда или ужина."),
-        Dish(R.drawable.image3, "Очень популярную закуску - жульен (точнее, жюльен) с курицей и грибами, можно приготовить на сковороде примерно за полчаса, совершенно не напрягая себя приобретением кокотниц и доведением блюда до готовности в духовке. А получается так же вкусно!"),
-        Dish(R.drawable.image4, "Блюдо привлекательно тем, что макароны отдельно отваривать не нужно, они тушатся в соусе вместе с мясом. Таким образом макароны полностью пропитываются мясной подливкой."),
-        Dish(R.drawable.image5, "Очень простая в приготовлении, но очень вкусная запеканка из картофеля и мясного фарша, с помидорами и сыром."),
-        Dish(R.drawable.image6, "На приготовление курицы с овощами по-китайски требуется совсем немного времени. Куриное мясо и овощи сначала обжариваются, а затем тушатся в кисло-сладком соусе с лёгкой остринкой. Благодаря овощам и соусу блюдо получается сочным, оригинальным и очень вкусным."),
-        Dish(R.drawable.image7, "Чтобы гречневая каша получилась вкусной, мы не будем отдельно готовить к ней подливку, а приготовим гречку вместе с кусочками куриного филе, шампиньонами и морковью в сковороде. Крупа впитает соки овощей, грибов и куриного мяса, оставаясь при этом рассыпчатой, а благодаря сливкам получится ещё вкуснее.")
-        )
+    private lateinit var db: AppDatabase
+    private lateinit var adapter: DishAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -41,24 +39,57 @@ class SearchFragment : Fragment() {
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        val adapter = DishAdapter(dishes) { dish ->
+        db = AppDatabase.getInstance(requireContext())
+
+        adapter = DishAdapter(emptyList()) { dish ->
             showRecipeDialog(dish)
         }
 
-        binding.recyclerView.apply {
-            layoutManager = GridLayoutManager(context, 2)
-            this.adapter = adapter
+        binding.recyclerView.layoutManager = GridLayoutManager(requireContext(), 2)
+        binding.recyclerView.adapter = adapter
+
+        // Загружаем все блюда при старте
+        loadAllDishes()
+
+        // 🔥 АВТО-ПОИСК ПРИ ВВОДЕ
+        binding.searchInput.addTextChangedListener { text ->
+            lifecycleScope.launch {
+                val query = text.toString()
+
+                val dishes = if (query.isBlank()) {
+                    db.appDao().getDishes()
+                } else {
+                    db.appDao().searchDishes(query)
+                }
+
+                adapter.updateDishes(dishes)
+            }
         }
     }
 
-    private fun showRecipeDialog(dish: Dish) {
-        val dialogView = layoutInflater.inflate(R.layout.dialog_recipe, null).apply {
-            findViewById<ImageView>(R.id.imageDialog).setImageResource(dish.imageResId)
-            findViewById<TextView>(R.id.textRecipe).text = dish.recipe
+    private fun loadAllDishes() {
+        lifecycleScope.launch {
+            val dishes = db.appDao().getDishes()
+            adapter.updateDishes(dishes)
         }
+    }
+
+    private fun showRecipeDialog(dish: DishEntity) {
+        val view = layoutInflater.inflate(R.layout.dialog_recipe, null)
+
+        val image = view.findViewById<ImageView>(R.id.imageDialog)
+        val text = view.findViewById<TextView>(R.id.textRecipe)
+
+        text.text = dish.description ?: "Описание отсутствует"
+
+        Glide.with(this)
+            .load("file:///android_asset/${dish.photoPath}")
+            .placeholder(android.R.drawable.ic_menu_gallery)
+            .error(android.R.drawable.ic_menu_report_image)
+            .into(image)
 
         MaterialAlertDialogBuilder(requireContext())
-            .setView(dialogView)
+            .setView(view)
             .setPositiveButton("Закрыть", null)
             .show()
     }
@@ -66,5 +97,52 @@ class SearchFragment : Fragment() {
     override fun onDestroyView() {
         super.onDestroyView()
         _binding = null
+    }
+}
+
+
+// === АДАПТЕР ДЛЯ DISHES ===
+class DishAdapter(
+    private var dishes: List<DishEntity>,
+    private val onDishClick: (DishEntity) -> Unit
+) : RecyclerView.Adapter<DishAdapter.ViewHolder>() {
+
+    class ViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+        private val imageView: ImageView = view.findViewById(R.id.imageView)
+        private val textView: TextView = view.findViewById(R.id.textView)
+
+        fun bind(dish: DishEntity, onDishClick: (DishEntity) -> Unit) {
+            textView.text = dish.name
+
+            if (!dish.photoPath.isNullOrBlank()) {
+                Glide.with(itemView.context)
+                    .load("file:///android_asset/${dish.photoPath}")
+                    .placeholder(android.R.drawable.ic_menu_gallery)
+                    .error(android.R.drawable.ic_menu_report_image)
+                    .into(imageView)
+            } else {
+                imageView.setImageResource(android.R.drawable.ic_menu_gallery)
+            }
+
+            itemView.setOnClickListener { onDishClick(dish) }
+        }
+    }
+
+    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
+        val view = LayoutInflater.from(parent.context)
+            .inflate(R.layout.item_dish, parent, false)
+        return ViewHolder(view)
+    }
+
+    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
+        holder.bind(dishes[position], onDishClick)
+    }
+
+    override fun getItemCount(): Int = dishes.size
+
+    @SuppressLint("NotifyDataSetChanged")
+    fun updateDishes(newDishes: List<DishEntity>) {
+        dishes = newDishes
+        notifyDataSetChanged()
     }
 }

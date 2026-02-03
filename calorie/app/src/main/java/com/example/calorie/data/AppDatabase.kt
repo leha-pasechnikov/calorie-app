@@ -152,6 +152,67 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt = null
                     )
                 )
+
+                // DISHES (добавьте после упражнений)
+                val dishes = listOf(
+                    DishEntity(
+                        name = "Омлет с овощами",
+                        description = "Омлет с болгарским перцем, помидорами и зеленью",
+                        photoPath = "image1.webp", // ← путь к asset
+                        calories = 350,
+                        proteins = 28.0,
+                        fats = 22.0,
+                        carbs = 12.0,
+                        water = 100.0,
+                        createdAt = null
+                    ),
+                    DishEntity(
+                        name = "Куриная грудка с гречкой",
+                        description = "Запеченная куриная грудка с гречневой кашей",
+                        photoPath = "image2.webp",
+                        calories = 420,
+                        proteins = 45.0,
+                        fats = 8.0,
+                        carbs = 50.0,
+                        water = 120.0,
+                        createdAt = null
+                    ),
+                    DishEntity(
+                        name = "Творог с бананом",
+                        description = "Обезжиренный творог с бананом и медом",
+                        photoPath = "image3.jpg",
+                        calories = 280,
+                        proteins = 35.0,
+                        fats = 2.0,
+                        carbs = 30.0,
+                        water = 80.0,
+                        createdAt = null
+                    ),
+                    DishEntity(
+                        name = "Салат Цезарь",
+                        description = "Классический салат Цезарь с курицей",
+                        photoPath = "image4.jpg",
+                        calories = 320,
+                        proteins = 25.0,
+                        fats = 18.0,
+                        carbs = 20.0,
+                        water = 150.0,
+                        createdAt = null
+                    ),
+                    DishEntity(
+                        name = "Лосось на пару с брокколи",
+                        description = "Филе лосося на пару с отварной брокколи",
+                        photoPath = "image5.jpg",
+                        calories = 380,
+                        proteins = 35.0,
+                        fats = 22.0,
+                        carbs = 15.0,
+                        water = 110.0,
+                        createdAt = null
+                    )
+                )
+
+                dao.insertDishes(dishes)
             }
         }
     }

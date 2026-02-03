@@ -41,6 +41,11 @@ interface AppDao {
     @Query("SELECT * FROM dishes ORDER BY name")
     suspend fun getDishes(): List<DishEntity>
 
+    @Query("""
+        SELECT * FROM dishes 
+        WHERE LOWER(name) LIKE '%' || LOWER(:query) || '%'
+    """)
+    suspend fun searchDishes(query: String): List<DishEntity>
     @Insert
     suspend fun insertDish(entity: DishEntity): Long
 
@@ -50,7 +55,13 @@ interface AppDao {
     @Delete
     suspend fun deleteDish(entity: DishEntity)
 
+    @Insert(onConflict = OnConflictStrategy.IGNORE)
+    suspend fun insertDishes(list: List<DishEntity>)
+
     // ================= FOOD PHOTOS =================
+    @Query("SELECT * FROM food_photos WHERE date(taken_datetime) = :date ORDER BY taken_datetime DESC")
+    suspend fun getFoodPhotosByDate(date: String): List<FoodPhotoEntity>
+
     @Query("SELECT * FROM food_photos ORDER BY taken_datetime DESC")
     suspend fun getFoodPhotos(): List<FoodPhotoEntity>
 

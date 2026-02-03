@@ -50,12 +50,14 @@ dependencies {
     implementation(libs.mpandroidchart)
     implementation(libs.androidx.recyclerview)
     implementation(libs.gson)
+    implementation(libs.glide)
 
     // Room
     implementation(libs.androidx.room.runtime)
     implementation(libs.androidx.room.ktx)
     implementation(libs.androidx.adapters)
     kapt(libs.androidx.room.compiler)
+    kapt(libs.compiler)
 
     // Coroutines (для асинхронных операций)
     implementation(libs.jetbrains.kotlinx.coroutines.android)

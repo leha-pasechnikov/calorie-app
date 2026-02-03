@@ -2,6 +2,7 @@ package com.example.calorie
 
 import android.annotation.SuppressLint
 import android.graphics.Color
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
@@ -11,14 +12,20 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.calorie.data.AppDatabase
+import com.example.calorie.data.FoodPhotoEntity
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
 import com.github.mikephil.charting.data.PieEntry
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.Calendar
 import java.util.GregorianCalendar
 
@@ -27,12 +34,14 @@ class HomeFragment : Fragment() {
     private var pieChart: PieChart? = null
     private var progressContainer: LinearLayout? = null
     private var weekContainer: LinearLayout? = null
-    private var mealAdapter: MealAdapter? = null
     private var textCaloriesValue: TextView? = null
     private var textWeekRange: TextView? = null
     private var btnPrevWeek: ImageButton? = null
     private var btnNextWeek: ImageButton? = null
     private var currentMonday: Calendar = CalendarHelper.getCurrentMonday()
+
+    private lateinit var db: AppDatabase
+    private lateinit var foodPhotoAdapter: FoodPhotoAdapter
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,11 +51,15 @@ class HomeFragment : Fragment() {
         return inflater.inflate(R.layout.fragment_home, container, false)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("SetTextI18n")
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
 
-        // Инициализация всех View
+        db = AppDatabase.getInstance(requireContext())
+        foodPhotoAdapter = FoodPhotoAdapter()
+
+        // Инициализация View
         pieChart = view.findViewById(R.id.pieCalories)
         progressContainer = view.findViewById(R.id.progressContainer)
         weekContainer = view.findViewById(R.id.weekContainer)
@@ -55,45 +68,30 @@ class HomeFragment : Fragment() {
         btnPrevWeek = view.findViewById(R.id.btnPrevWeek)
         btnNextWeek = view.findViewById(R.id.btnNextWeek)
 
-        setupMealHistory(view)
-        setupWeekNavigation()
+        // Настройка RecyclerView
+        val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerViewMeals)
+        recyclerView.adapter = foodPhotoAdapter
+        recyclerView.layoutManager = LinearLayoutManager(context)
 
+        setupWeekNavigation()
         refreshWeek()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun setupWeekNavigation() {
         btnPrevWeek?.setOnClickListener {
             currentMonday.add(Calendar.WEEK_OF_YEAR, -1)
             refreshWeek()
         }
-
         btnNextWeek?.setOnClickListener {
             currentMonday.add(Calendar.WEEK_OF_YEAR, 1)
             refreshWeek()
         }
     }
 
-    private fun getCurrentMonday(): Calendar {
-        val cal = GregorianCalendar().apply {
-            set(Calendar.HOUR_OF_DAY, 0)
-            set(Calendar.MINUTE, 0)
-            set(Calendar.SECOND, 0)
-            set(Calendar.MILLISECOND, 0)
-
-            val dayOfWeek = get(Calendar.DAY_OF_WEEK)
-            val daysToMonday = when (dayOfWeek) {
-                Calendar.SUNDAY -> -6
-                Calendar.MONDAY -> 0
-                else -> 2 - dayOfWeek
-            }
-            add(Calendar.DAY_OF_MONTH, daysToMonday)
-        }
-        return cal
-    }
-
+    @RequiresApi(Build.VERSION_CODES.O)
     @SuppressLint("SetTextI18n")
     private fun refreshWeek() {
-        // Обновляем заголовок недели
         val sunday = GregorianCalendar().apply {
             timeInMillis = currentMonday.timeInMillis
             add(Calendar.DAY_OF_MONTH, 6)
@@ -106,10 +104,8 @@ class HomeFragment : Fragment() {
 
         val mondayMonthStr = mondayMonth.toString().padStart(2, '0')
         val sundayMonthStr = sundayMonth.toString().padStart(2, '0')
-
         textWeekRange?.text = "$mondayDay.$mondayMonthStr - $sundayDay.$sundayMonthStr"
 
-        // Генерируем дни через helper
         CalendarHelper.setupWeek(
             container = weekContainer!!,
             inflater = layoutInflater,
@@ -120,74 +116,71 @@ class HomeFragment : Fragment() {
             todayHighlight = true
         )
 
-        // Автоматически выбираем нужный день
+        // Выбираем сегодня или первый день
         val today = GregorianCalendar().apply {
             set(Calendar.HOUR_OF_DAY, 0)
             set(Calendar.MINUTE, 0)
             set(Calendar.SECOND, 0)
             set(Calendar.MILLISECOND, 0)
         }
-
         val dayToSelect = if (CalendarHelper.isDateInWeek(today, currentMonday)) {
             val diff = ((today.timeInMillis - currentMonday.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
             diff.coerceIn(0, 6)
         } else {
             0
         }
-
         weekContainer?.getChildAt(dayToSelect)?.performClick()
     }
 
-    private fun getShortDayName(dayOfWeek: Int): String {
-        return when (dayOfWeek) {
-            Calendar.MONDAY -> "Пн"
-            Calendar.TUESDAY -> "Вт"
-            Calendar.WEDNESDAY -> "Ср"
-            Calendar.THURSDAY -> "Чт"
-            Calendar.FRIDAY -> "Пт"
-            Calendar.SATURDAY -> "Сб"
-            Calendar.SUNDAY -> "Вс"
-            else -> "??"
-        }
-    }
-
-    private fun isSameDay(cal1: Calendar, cal2: Calendar): Boolean {
-        return cal1.get(Calendar.YEAR) == cal2.get(Calendar.YEAR) &&
-                cal1.get(Calendar.DAY_OF_YEAR) == cal2.get(Calendar.DAY_OF_YEAR)
-    }
-
-    private fun isDateInWeek(date: Calendar, monday: Calendar): Boolean {
-        val start = monday.timeInMillis
-        val end = start + 6 * 24 * 60 * 60 * 1000L
-        val target = date.timeInMillis
-        return target >= start && target <= end
-    }
-
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun updateUIForDate(date: Calendar) {
-        val day = date.get(Calendar.DAY_OF_MONTH)
-        val consumedCalories = when (day % 3) {
-            0 -> 1800f
-            1 -> 2100f
-            else -> 1500f
+        // Преобразуем Calendar в LocalDate
+        val localDate = LocalDate.of(
+            date.get(Calendar.YEAR),
+            date.get(Calendar.MONTH) + 1,
+            date.get(Calendar.DAY_OF_MONTH)
+        )
+        val dateStr = localDate.toString() // "YYYY-MM-DD"
+
+        // Загружаем данные асинхронно
+        lifecycleScope.launch {
+            val client = db.appDao().getClient()
+            val foodPhotos = db.appDao().getFoodPhotosByDate(dateStr)
+
+            // Считаем суммы
+            val consumedCalories = foodPhotos.sumOf { it.calories ?: 0 }
+            val consumedProteins = foodPhotos.sumOf { (it.proteins ?: 0.0).toInt() }
+            val consumedFats = foodPhotos.sumOf { (it.fats ?: 0.0).toInt() }
+            val consumedCarbs = foodPhotos.sumOf { (it.carbs ?: 0.0).toInt() }
+            val consumedWater = foodPhotos.sumOf { (it.water ?: 0.0).toInt() }
+
+            // Цели из клиента
+            val goalCalories = client?.targetCalories ?: 2200
+            val goalProteins = (client?.targetProteins ?: 150.0).toInt()
+            val goalFats = (client?.targetFats ?: 70.0).toInt()
+            val goalCarbs = (client?.targetCarbs ?: 250.0).toInt()
+            val goalWater = (client?.targetWater ?: 2.5 * 1000).toInt() // л → мл
+
+            // Обновляем UI
+            requireActivity().runOnUiThread {
+                updateCaloriePieChart(consumedCalories.toFloat(), goalCalories.toFloat())
+                updateProgressBars(
+                    Pair(consumedProteins, goalProteins),
+                    Pair(consumedFats, goalFats),
+                    Pair(consumedCarbs, goalCarbs),
+                    Pair(consumedWater, goalWater)
+                )
+                foodPhotoAdapter.updatePhotos(foodPhotos)
+            }
         }
-        val goalCalories = 2200f
-
-        val proteins = Pair(45 + day % 10, 80)
-        val fats = Pair(60 + day % 15, 70)
-        val carbs = Pair(200 + day * 2, 300)
-        val water = Pair(1500 + day * 50, 2000)
-
-        updateCaloriePieChart(consumedCalories, goalCalories)
-        updateProgressBars(proteins, fats, carbs, water)
-        updateMealHistory(date)
     }
 
     @SuppressLint("SetTextI18n")
     private fun updateCaloriePieChart(consumed: Float, goal: Float) {
         val remaining = goal - consumed
         val entries = listOf(
-            PieEntry(consumed, ""),
-            PieEntry(remaining, "")
+            PieEntry(consumed.coerceAtLeast(0f), ""),
+            PieEntry(remaining.coerceAtLeast(0f), "")
         )
 
         val colors = listOf(
@@ -204,27 +197,16 @@ class HomeFragment : Fragment() {
             data = PieData(dataSet)
             description.isEnabled = false
             legend.isEnabled = false
-
-            // Настройки для "спидометра"
-            isRotationEnabled = false // Отключаем вращение
-            holeRadius = 70f // Внутренний радиус (делаем кольцо)
+            isRotationEnabled = false
+            holeRadius = 70f
             transparentCircleRadius = 75f
-            setDrawHoleEnabled(true) // Включаем "дырку"
+            setDrawHoleEnabled(true)
             setHoleColor(Color.TRANSPARENT)
-
-            // Настройка "спидометра" - угол начала и конца
-            maxAngle = 270f // Максимальный угол (360 = полный круг)
-            rotationAngle = 135f // Начало отсчета (снизу по центру)
-
-            // Отступ между секторами (если нужно)
-            // dataSet.sliceSpace = 2f
-
+            maxAngle = 270f
+            rotationAngle = 135f
             setTouchEnabled(false)
             setDrawEntryLabels(false)
-
-            // Анимация
             animateY(1000)
-
             invalidate()
         }
 
@@ -237,10 +219,9 @@ class HomeFragment : Fragment() {
         view.findViewById<TextView>(R.id.textLabel).text = label
         view.findViewById<ProgressBar>(R.id.progressBar).apply {
             this.max = max
-            this.progress = progress
+            this.progress = progress.coerceAtMost(max)
         }
         view.findViewById<TextView>(R.id.textValue).text = "$progress / $max"
-
         return view
     }
 
@@ -257,55 +238,5 @@ class HomeFragment : Fragment() {
             addView(createProgressItem("Углеводы", carbs.first, carbs.second))
             addView(createProgressItem("Вода", water.first, water.second))
         }
-    }
-
-    private fun setupMealHistory(view: View) {
-        val recyclerView = view.findViewById<RecyclerView>(R.id.recyclerViewMeals)
-        mealAdapter = MealAdapter(emptyList())
-        recyclerView.adapter = mealAdapter
-        recyclerView.layoutManager = LinearLayoutManager(context)
-    }
-
-    private fun updateMealHistory(date: Calendar) {
-        val day = date.get(Calendar.DAY_OF_MONTH)
-        val meals = listOf(
-            Meal("Овсянка с фруктами", "Калории: ${300 + day}\nБелки: ${10 + day % 5} г | Жиры: ${8 + day % 3} г | Углеводы: ${40 + day % 10} г\nВода: ${200 + day * 10} мл", R.drawable.photo1),
-            Meal("Куриная грудка", "Калории: ${250 + day}\nБелки: ${30 + day % 5} г | Жиры: ${5 + day % 2} г | Углеводы: ${0} г\nВода: ${100 + day * 5} мл", R.drawable.photo2)
-        )
-        mealAdapter?.updateMeals(meals)
-    }
-}
-
-
-// --- Вспомогательные классы ---
-
-data class Meal(val name: String, val nutrients: String, val imageRes: Int)
-
-class MealAdapter(var meals: List<Meal>) : RecyclerView.Adapter<MealAdapter.ViewHolder>() {
-
-    class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-        fun bind(meal: Meal) {
-            itemView.findViewById<TextView>(R.id.textMealName).text = meal.name
-            itemView.findViewById<TextView>(R.id.textNutrients).text = meal.nutrients
-            itemView.findViewById<ImageView>(R.id.imageMeal).setImageResource(meal.imageRes)
-        }
-    }
-
-    override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ViewHolder {
-        val view = LayoutInflater.from(parent.context)
-            .inflate(R.layout.item_meal, parent, false)
-        return ViewHolder(view)
-    }
-
-    override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(meals[position])
-    }
-
-    override fun getItemCount() = meals.size
-
-    @SuppressLint("NotifyDataSetChanged")
-    fun updateMeals(newMeals: List<Meal>) {
-        meals = newMeals
-        notifyDataSetChanged()
     }
 }

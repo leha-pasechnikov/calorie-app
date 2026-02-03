@@ -1,5 +1,6 @@
 package com.example.calorie
 
+import android.annotation.SuppressLint
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
@@ -11,15 +12,25 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import androidx.core.content.ContextCompat
+import androidx.lifecycle.lifecycleScope
+import com.example.calorie.data.AppDatabase
+import com.example.calorie.data.ClientEntity
+import kotlinx.coroutines.launch
 
 class ProfileActivity : AppCompatActivity() {
 
     private lateinit var settingsContainer: LinearLayout
+    private lateinit var db: AppDatabase
+    private var client: ClientEntity? = null
+
     private val dividerColor by lazy { ContextCompat.getColor(this, R.color.divider) }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_profile)
+
+        db = AppDatabase.getInstance(this)
+        settingsContainer = findViewById(R.id.settingsContainer)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -27,47 +38,74 @@ class ProfileActivity : AppCompatActivity() {
         supportActionBar?.setDisplayShowHomeEnabled(true)
         supportActionBar?.title = "Профиль"
 
-        settingsContainer = findViewById(R.id.settingsContainer)
+        // Загружаем данные из БД
+        loadClientData()
+    }
+
+    private fun loadClientData() {
+        lifecycleScope.launch {
+            client = db.appDao().getClient()
+            if (client == null) {
+                // Создаём клиента по умолчанию
+                client = ClientEntity(
+                    id = 1,
+                    gender = "male",
+                    age = 30,
+                    height = 180.0,
+                    currentWeight = 75.0,
+                    targetWeight = 70.0,
+                    targetDate = "2026-06-01",
+                    targetCalories = 2200,
+                    targetProteins = 120.0,
+                    targetFats = 70.0,
+                    targetCarbs = 300.0,
+                    targetWater = 2.0
+                )
+                db.appDao().insertClient(client!!)
+            }
+            runOnUiThread {
+                buildUI()
+            }
+        }
+    }
+
+    private fun buildUI() {
+        settingsContainer.removeAllViews()
 
         // 1. Персональные данные
         addSectionHeader("Персональные данные")
-        addSettingItem("Пол", MainActivity.userData.gender) { editGender() }
+        addSettingItem("Пол", getGenderDisplay(client?.gender)) { editGender() }
         addDivider()
-        addSettingItem("Возраст", "${MainActivity.userData.age} лет") { editAge() }
+        addSettingItem("Возраст", "${client?.age ?: 0} лет") { editAge() }
         addDivider()
-        addSettingItem("Рост", "${MainActivity.userData.height} см") { editHeight() }
+        addSettingItem("Рост", "${client?.height?.toInt() ?: 0} см") { editHeight() }
         addDivider()
-        addSettingItem("Текущий вес", "${MainActivity.userData.weight} кг") { editWeight() }
+        addSettingItem("Текущий вес", "${client?.currentWeight?.toInt() ?: 0} кг") { editWeight() }
         addDivider()
-        addSettingItem("Цель по весу", "${MainActivity.userData.targetWeight} кг") { editTargetWeight() }
+        addSettingItem("Цель по весу", "${client?.targetWeight?.toInt() ?: 0} кг") { editTargetWeight() }
         addDivider()
-        addSettingItem("Дата цели", MainActivity.userData.targetDate) { editTargetDate() }
+        addSettingItem("Дата цели", formatDateForDisplay(client?.targetDate)) { editTargetDate() }
 
-        // Добавляем отступ между секциями
         addSectionSpacing()
 
         // 2. Цели по питанию
         addSectionHeader("Цели по питанию")
-        addSettingItem("Калории", "${MainActivity.userData.caloriesGoal} ккал") { editCalories() }
+        addSettingItem("Калории", "${client?.targetCalories ?: 0} ккал") { editCalories() }
         addDivider()
-        addSettingItem("Белки", "${MainActivity.userData.proteinGoal} г") { editProtein() }
+        addSettingItem("Белки", "${client?.targetProteins?.toInt() ?: 0} г") { editProtein() }
         addDivider()
-        addSettingItem("Жиры", "${MainActivity.userData.fatGoal} г") { editFat() }
+        addSettingItem("Жиры", "${client?.targetFats?.toInt() ?: 0} г") { editFat() }
         addDivider()
-        addSettingItem("Углеводы", "${MainActivity.userData.carbsGoal} г") { editCarbs() }
+        addSettingItem("Углеводы", "${client?.targetCarbs?.toInt() ?: 0} г") { editCarbs() }
         addDivider()
-        addSettingItem("Вода", "${MainActivity.userData.waterGoal} мл") { editWater() }
+        addSettingItem("Вода", "${(client?.targetWater ?: 0.0).toInt() * 1000} мл") { editWater() }
 
-        // Добавляем отступ между секциями
         addSectionSpacing()
 
         // 3. Способ оплаты
         addSectionHeader("Способ оплаты")
-        addSettingItem("Тариф", "Бесплатная версия") {
-            // TODO: открыть экран премиум
-        }
+        addSettingItem("Тариф", "Бесплатная версия") {}
 
-        // Добавляем отступ между секциями
         addSectionSpacing()
 
         // 4. Поддержка
@@ -78,7 +116,6 @@ class ProfileActivity : AppCompatActivity() {
         addDivider()
         addSettingItem("Пользовательское соглашение", "") { openTerms() }
 
-        // Версия
         addVersion()
     }
 
@@ -165,61 +202,121 @@ class ProfileActivity : AppCompatActivity() {
         return (dp * resources.displayMetrics.density).toInt()
     }
 
+    // === ВСПОМОГАТЕЛЬНЫЕ МЕТОДЫ ===
+
+    private fun getGenderDisplay(gender: String?): String {
+        return when (gender) {
+            "male" -> "Мужской"
+            "female" -> "Женский"
+            else -> "Не указано"
+        }
+    }
+
+    private fun formatDateForDisplay(dateStr: String?): String {
+        if (dateStr.isNullOrEmpty()) return "Не указана"
+        // Преобразуем YYYY-MM-DD в DD.MM.YYYY
+        return try {
+            val parts = dateStr.split("-")
+            if (parts.size == 3) {
+                "${parts[2]}.${parts[1]}.${parts[0]}"
+            } else {
+                dateStr
+            }
+        } catch (e: Exception) {
+            dateStr
+        }
+    }
+
+    private fun parseDateFromInput(input: String): String? {
+        // Преобразуем DD.MM.YYYY в YYYY-MM-DD
+        if (input.length == 10 && input[2] == '.' && input[5] == '.') {
+            val day = input.substring(0, 2)
+            val month = input.substring(3, 5)
+            val year = input.substring(6, 10)
+            return "$year-$month-$day"
+        }
+        return null
+    }
+
     // === РЕДАКТИРОВАНИЕ ===
 
     private fun editGender() {
         val options = arrayOf("Мужской", "Женский")
-        val current = if (MainActivity.userData.gender == "Мужской") 0 else 1
+        val current = when (client?.gender) {
+            "male" -> 0
+            "female" -> 1
+            else -> 0
+        }
         AlertDialog.Builder(this)
             .setTitle("Пол")
             .setSingleChoiceItems(options, current) { dialog, which ->
-                MainActivity.userData.gender = options[which]
-                saveAndReload()
+                client = client?.copy(gender = if (which == 0) "male" else "female")
+                saveClient()
+                buildUI()
                 dialog.dismiss()
             }
             .setNegativeButton("Отмена", null)
             .show()
     }
 
-    private fun editAge() = editNumberField("Возраст (лет)", MainActivity.userData.age) { value ->
-        MainActivity.userData.age = value
+    private fun editAge() = editNumberField("Возраст (лет)", client?.age ?: 0) { value ->
+        client = client?.copy(age = value)
+        saveClient()
+        buildUI()
     }
 
-    private fun editHeight() = editNumberField("Рост (см)", MainActivity.userData.height) { value ->
-        MainActivity.userData.height = value
+    private fun editHeight() = editNumberField("Рост (см)", client?.height?.toInt() ?: 0) { value ->
+        client = client?.copy(height = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editWeight() = editNumberField("Текущий вес (кг)", MainActivity.userData.weight) { value ->
-        MainActivity.userData.weight = value
+    private fun editWeight() = editNumberField("Текущий вес (кг)", client?.currentWeight?.toInt() ?: 0) { value ->
+        client = client?.copy(currentWeight = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editTargetWeight() = editNumberField("Цель по весу (кг)", MainActivity.userData.targetWeight) { value ->
-        MainActivity.userData.targetWeight = value
+    private fun editTargetWeight() = editNumberField("Цель по весу (кг)", client?.targetWeight?.toInt() ?: 0) { value ->
+        client = client?.copy(targetWeight = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editCalories() = editNumberField("Калории (ккал)", MainActivity.userData.caloriesGoal) { value ->
-        MainActivity.userData.caloriesGoal = value
+    private fun editCalories() = editNumberField("Калории (ккал)", client?.targetCalories ?: 0) { value ->
+        client = client?.copy(targetCalories = value)
+        saveClient()
+        buildUI()
     }
 
-    private fun editProtein() = editNumberField("Белки (г)", MainActivity.userData.proteinGoal) { value ->
-        MainActivity.userData.proteinGoal = value
+    private fun editProtein() = editNumberField("Белки (г)", client?.targetProteins?.toInt() ?: 0) { value ->
+        client = client?.copy(targetProteins = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editFat() = editNumberField("Жиры (г)", MainActivity.userData.fatGoal) { value ->
-        MainActivity.userData.fatGoal = value
+    private fun editFat() = editNumberField("Жиры (г)", client?.targetFats?.toInt() ?: 0) { value ->
+        client = client?.copy(targetFats = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editCarbs() = editNumberField("Углеводы (г)", MainActivity.userData.carbsGoal) { value ->
-        MainActivity.userData.carbsGoal = value
+    private fun editCarbs() = editNumberField("Углеводы (г)", client?.targetCarbs?.toInt() ?: 0) { value ->
+        client = client?.copy(targetCarbs = value.toDouble())
+        saveClient()
+        buildUI()
     }
 
-    private fun editWater() = editNumberField("Вода (мл)", MainActivity.userData.waterGoal) { value ->
-        MainActivity.userData.waterGoal = value
+    private fun editWater() = editNumberField("Вода (мл)", (client?.targetWater ?: 0.0).toInt() * 1000) { value ->
+        client = client?.copy(targetWater = value / 1000.0)
+        saveClient()
+        buildUI()
     }
 
     private fun editTargetDate() {
+        val displayDate = formatDateForDisplay(client?.targetDate)
         val input = EditText(this).apply {
-            setText(MainActivity.userData.targetDate)
+            setText(displayDate)
         }
         AlertDialog.Builder(this)
             .setTitle("Дата цели (дд.мм.гггг)")
@@ -227,10 +324,11 @@ class ProfileActivity : AppCompatActivity() {
             .setPositiveButton("Сохранить") { _, _ ->
                 val text = input.text.toString().trim()
                 if (text.isNotEmpty()) {
-                    // Простая валидация формата
-                    if (text.length == 10 && text[2] == '.' && text[5] == '.') {
-                        MainActivity.userData.targetDate = text
-                        saveAndReload()
+                    val parsedDate = parseDateFromInput(text)
+                    if (parsedDate != null) {
+                        client = client?.copy(targetDate = parsedDate)
+                        saveClient()
+                        buildUI()
                     } else {
                         showError("Неверный формат даты. Используйте дд.мм.гггг")
                     }
@@ -253,7 +351,6 @@ class ProfileActivity : AppCompatActivity() {
                     val value = input.text.toString().toInt()
                     if (value > 0) {
                         onSave(value)
-                        saveAndReload()
                     } else {
                         showError("Значение должно быть больше 0")
                     }
@@ -265,9 +362,10 @@ class ProfileActivity : AppCompatActivity() {
             .show()
     }
 
-    private fun saveAndReload() {
-        MainActivity.saveData(this)
-        recreate()
+    private fun saveClient() {
+        lifecycleScope.launch {
+            client?.let { db.appDao().updateClient(it) }
+        }
     }
 
     private fun showError(message: String) {
@@ -276,6 +374,7 @@ class ProfileActivity : AppCompatActivity() {
 
     // === ПОДДЕРЖКА ===
 
+    @SuppressLint("QueryPermissionsNeeded")
     private fun sendEmail() {
         val intent = Intent(Intent.ACTION_SENDTO).apply {
             data = Uri.parse("mailto:support@calorie.app")

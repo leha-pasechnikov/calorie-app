@@ -12,30 +12,34 @@ import android.os.Bundle
 import android.os.Environment
 import android.provider.MediaStore
 import android.util.Log
+import android.widget.Button
 import android.widget.Toast
+import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import com.example.calorie.data.AppDatabase
+import com.example.calorie.data.FoodPhotoEntity
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
+import java.time.LocalDateTime
+import java.time.format.DateTimeFormatter
 
 class CameraActivity : AppCompatActivity() {
 
     private lateinit var photoFile: File
-    private var currentPhotoPath: String = ""
+    private var currentPhotoPath = ""
 
     companion object {
         private const val REQUEST_IMAGE_CAPTURE = 1
         private const val REQUEST_PICK_IMAGE = 2
         private const val PERMISSIONS_REQUEST_CAMERA = 100
         private const val PERMISSIONS_REQUEST_STORAGE = 101
-
-        // Для FileProvider
         private const val FILE_PROVIDER_AUTHORITY = "com.example.calorie.fileprovider"
     }
 
@@ -43,14 +47,13 @@ class CameraActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_camera)
 
-        // Простой интерфейс: две кнопки
-        findViewById<android.widget.Button>(R.id.btnTakePhoto).setOnClickListener {
+        findViewById<Button>(R.id.btnTakePhoto).setOnClickListener {
             if (checkCameraPermission()) {
                 dispatchTakePictureIntent()
             }
         }
 
-        findViewById<android.widget.Button>(R.id.btnChooseFromGallery).setOnClickListener {
+        findViewById<Button>(R.id.btnChooseFromGallery).setOnClickListener {
             if (checkStoragePermission()) {
                 openGallery()
             }
@@ -58,16 +61,16 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun checkCameraPermission(): Boolean {
-        if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
+        return if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) != PackageManager.PERMISSION_GRANTED) {
             ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.CAMERA), PERMISSIONS_REQUEST_CAMERA)
-            return false
+            false
+        } else {
+            true
         }
-        return true
     }
 
     private fun checkStoragePermission(): Boolean {
         return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            // Android 13+
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_MEDIA_IMAGES), PERMISSIONS_REQUEST_STORAGE)
                 false
@@ -75,7 +78,6 @@ class CameraActivity : AppCompatActivity() {
                 true
             }
         } else {
-            // Android 12 и ниже
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) != PackageManager.PERMISSION_GRANTED) {
                 ActivityCompat.requestPermissions(this, arrayOf(Manifest.permission.READ_EXTERNAL_STORAGE), PERMISSIONS_REQUEST_STORAGE)
                 false
@@ -86,10 +88,9 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun createImageFile(): File {
-        val timeStamp = SimpleDateFormat("yyyyMMdd_HHmmss", Locale.getDefault()).format(Date())
         val storageDir = getExternalFilesDir(Environment.DIRECTORY_PICTURES)
         return File.createTempFile(
-            "JPEG_${timeStamp}_",
+            "food_${System.currentTimeMillis()}_",
             ".jpg",
             storageDir
         ).apply {
@@ -100,22 +101,17 @@ class CameraActivity : AppCompatActivity() {
     @SuppressLint("QueryPermissionsNeeded")
     private fun dispatchTakePictureIntent() {
         Intent(MediaStore.ACTION_IMAGE_CAPTURE).also { takePictureIntent ->
-            if (takePictureIntent.resolveActivity(packageManager) == null) {
-                Log.e("CameraActivity", "Нет приложения камеры!")
-                Toast.makeText(this, "Камера недоступна", Toast.LENGTH_SHORT).show()
-                return
-            }
             takePictureIntent.resolveActivity(packageManager)?.also {
                 photoFile = createImageFile()
-                photoFile.also {
-                    val photoURI = FileProvider.getUriForFile(
-                        this,
-                        FILE_PROVIDER_AUTHORITY,
-                        it
-                    )
-                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
-                    startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
-                }
+                val photoURI = FileProvider.getUriForFile(
+                    this,
+                    FILE_PROVIDER_AUTHORITY,
+                    photoFile
+                )
+                takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT, photoURI)
+                startActivityForResult(takePictureIntent, REQUEST_IMAGE_CAPTURE)
+            } ?: run {
+                Toast.makeText(this, "Камера недоступна", Toast.LENGTH_SHORT).show()
             }
         }
     }
@@ -147,6 +143,7 @@ class CameraActivity : AppCompatActivity() {
     }
 
     @Deprecated("Deprecated in Java")
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
@@ -164,17 +161,18 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun processCapturedImage(file: File) {
-        // Сжатие и сохранение
         val compressedPath = compressAndSaveImage(file.absolutePath)
         if (compressedPath != null) {
-            sendToApi(compressedPath)
+            saveToDatabase(compressedPath)
             returnResult(compressedPath)
         } else {
             finish()
         }
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun processPickedImage(uri: Uri) {
         try {
             contentResolver.openInputStream(uri)?.use { inputStream ->
@@ -185,7 +183,7 @@ class CameraActivity : AppCompatActivity() {
                 }
                 val compressedPath = compressAndSaveImage(tempFile.absolutePath)
                 if (compressedPath != null) {
-                    sendToApi(compressedPath)
+                    saveToDatabase(compressedPath)
                     returnResult(compressedPath)
                 } else {
                     finish()
@@ -204,17 +202,7 @@ class CameraActivity : AppCompatActivity() {
             }
             BitmapFactory.decodeFile(originalPath, options)
 
-            val imageWidth = options.outWidth
-            val imageHeight = options.outHeight
-
-            // Целевой размер — не более 1280px по большей стороне
-            val targetSize = 1280
-            val scaleFactor = if (imageWidth > imageHeight) {
-                imageWidth / targetSize
-            } else {
-                imageHeight / targetSize
-            }.coerceAtLeast(1)
-
+            val scaleFactor = calculateInSampleSize(options, 1280, 1280)
             val finalOptions = BitmapFactory.Options().apply {
                 inSampleSize = scaleFactor
                 inJustDecodeBounds = false
@@ -232,10 +220,41 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
-    private fun sendToApi(imagePath: String) {
-        // Заглушка: отправка на localhost
-        Log.d("CameraActivity", "Отправка $imagePath на http://10.0.2.2:8000/api/upload")
-        // TODO: Реализовать Retrofit/OkHttp запрос
+    private fun calculateInSampleSize(options: BitmapFactory.Options, reqWidth: Int, reqHeight: Int): Int {
+        val height = options.outHeight
+        val width = options.outWidth
+        var inSampleSize = 1
+
+        if (height > reqHeight || width > reqWidth) {
+            val halfHeight = height / 2
+            val halfWidth = width / 2
+
+            while (halfHeight / inSampleSize >= reqHeight && halfWidth / inSampleSize >= reqWidth) {
+                inSampleSize *= 2
+            }
+        }
+        return inSampleSize
+    }
+
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun saveToDatabase(imagePath: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getInstance(this@CameraActivity)
+            val now = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+            val photo = FoodPhotoEntity(
+                photoPath = imagePath,
+                name = "Новое блюдо",
+                calories = 0, // Будет обновлено после API
+                proteins = 0.0,
+                fats = 0.0,
+                carbs = 0.0,
+                water = 0.0,
+                weight = 0.0,
+                takenDatetime = now,
+                createdAt = now
+            )
+            db.appDao().insertFoodPhoto(photo)
+        }
     }
 
     private fun returnResult(imagePath: String) {
