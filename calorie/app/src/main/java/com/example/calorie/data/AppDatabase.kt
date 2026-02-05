@@ -75,12 +75,14 @@ abstract class AppDatabase : RoomDatabase() {
             super.onCreate(db)
 
             // Заполняем тестовыми данными в фоне
+            // Заполняем тестовыми данными в фоне
             CoroutineScope(Dispatchers.IO).launch {
                 val database = getInstance(context)
                 val dao = database.appDao()
 
                 val today = LocalDate.now()
                 val tomorrow = today.plusDays(1)
+                val tomorrow2 = today.plusDays(2)
 
                 // 📁 Создаём папку
                 val folder = File(context.filesDir, "CalorieFolder")
@@ -112,57 +114,66 @@ abstract class AppDatabase : RoomDatabase() {
                 )
 
                 // EXERCISES
-                dao.insertExercises(
-                    listOf(
-                        ExerciseEntity(
-                            name = "Приседания",
-                            description = "Базовое упражнение для ног",
-                            imagePath = null,
-                            videoPath = null,
-                            tips = null,
-                            muscleGroup = "legs",
-                            difficulty = "beginner",
-                            createdAt = null
-                        ),
-                        ExerciseEntity(
-                            name = "Жим лежа",
-                            description = "Грудные мышцы",
-                            imagePath = null,
-                            videoPath = null,
-                            tips = null,
-                            muscleGroup = "chest",
-                            difficulty = "intermediate",
-                            createdAt = null
-                        )
+                val exercises = listOf(
+                    ExerciseEntity(
+                        name = "Приседания со штангой",
+                        description = "Базовое упражнение для ног и ягодиц",
+                        imagePath = null,
+                        videoPath = null,
+                        tips = "Спина прямая, колени не выходят за носки",
+                        muscleGroup = "legs",
+                        difficulty = "intermediate",
+                        createdAt = null
+                    ),
+                    ExerciseEntity(
+                        name = "Жим лежа",
+                        description = "Упражнение для грудных мышц",
+                        imagePath = null,
+                        videoPath = null,
+                        tips = "Лопатки сведены, полная амплитуда",
+                        muscleGroup = "chest",
+                        difficulty = "intermediate",
+                        createdAt = null
+                    ),
+                    ExerciseEntity(
+                        name = "Тяга верхнего блока",
+                        description = "Для широчайших мышц спины",
+                        imagePath = null,
+                        videoPath = null,
+                        tips = "Тянуть к груди, сводить лопатки",
+                        muscleGroup = "back",
+                        difficulty = "beginner",
+                        createdAt = null
                     )
                 )
+                val exerciseIds = dao.insertExercises(exercises)
 
-                // WORKOUT TODAY
-                dao.insertWorkout(
+                // WORKOUT TODAY (завершённая)
+                val workoutId1 = dao.insertWorkout(
                     WorkoutEntity(
                         workoutDate = today.toString(),
                         status = "completed",
                         plannedStartTime = "10:00",
-                        plannedEndTime = "11:00",
+                        plannedEndTime = "11:30",
                         actualStartDatetime = today.atTime(10, 5).toString(),
-                        actualEndDatetime = today.atTime(11, 0).toString(),
+                        actualEndDatetime = today.atTime(11, 25).toString(),
                         rating = 8,
-                        notes = "Тренировка сегодня",
+                        notes = "Первая тренировка",
                         createdAt = null
                     )
                 )
 
-                // WORKOUT TOMORROW
-                dao.insertWorkout(
+                // WORKOUT TOMORROW (запланированная)
+                val workoutId2 = dao.insertWorkout(
                     WorkoutEntity(
                         workoutDate = tomorrow.toString(),
                         status = "in_progress",
                         plannedStartTime = "18:00",
-                        plannedEndTime = "19:00",
+                        plannedEndTime = "19:30",
                         actualStartDatetime = null,
                         actualEndDatetime = null,
                         rating = null,
-                        notes = "Запланировано",
+                        notes = "Запланирована",
                         createdAt = null
                     )
                 )
@@ -183,7 +194,7 @@ abstract class AppDatabase : RoomDatabase() {
                     )
                 )
 
-                // DISHES (добавьте после упражнений)
+                // DISHES
                 val dishes = listOf(
                     DishEntity(
                         name = "Омлет с овощами",
@@ -241,8 +252,89 @@ abstract class AppDatabase : RoomDatabase() {
                         createdAt = null
                     )
                 )
-
                 dao.insertDishes(dishes)
+
+                // === WORKOUT SCHEDULE & SETS ===
+
+                // Для завершённой тренировки (workoutId1)
+                val schedule1 = dao.insertWorkoutSchedule(
+                    WorkoutScheduleEntity(
+                        workoutId = workoutId1.toInt(),
+                        exerciseId = exerciseIds[0].toInt(), // Приседания
+                        plannedSets = 4,
+                        exerciseDuration = 60,
+                        restDuration = 90,
+                        status = "completed",
+                        orderNumber = 1
+                    )
+                )
+                val schedule2 = dao.insertWorkoutSchedule(
+                    WorkoutScheduleEntity(
+                        workoutId = workoutId1.toInt(),
+                        exerciseId = exerciseIds[1].toInt(), // Жим лежа
+                        plannedSets = 4,
+                        exerciseDuration = 45,
+                        restDuration = 120,
+                        status = "completed",
+                        orderNumber = 2
+                    )
+                )
+
+                // Подходы для приседаний
+                dao.insertWorkoutSet(
+                    WorkoutSetEntity(
+                        workoutScheduleId = schedule1.toInt(),
+                        setNumber = 1,
+                        plannedReps = 10,
+                        plannedWeight = 60.0,
+                        actualReps = 10,
+                        actualWeight = 60.0,
+                        setCompleted = true,
+                        restAfterSet = 90,
+                        completedAt = today.atTime(10, 10).toString()
+                    )
+                )
+                dao.insertWorkoutSet(
+                    WorkoutSetEntity(
+                        workoutScheduleId = schedule1.toInt(),
+                        setNumber = 2,
+                        plannedReps = 10,
+                        plannedWeight = 60.0,
+                        actualReps = 10,
+                        actualWeight = 60.0,
+                        setCompleted = true,
+                        restAfterSet = 90,
+                        completedAt = today.atTime(10, 13).toString()
+                    )
+                )
+
+                // Подходы для жима лежа
+                dao.insertWorkoutSet(
+                    WorkoutSetEntity(
+                        workoutScheduleId = schedule2.toInt(),
+                        setNumber = 1,
+                        plannedReps = 10,
+                        plannedWeight = 50.0,
+                        actualReps = 10,
+                        actualWeight = 50.0,
+                        setCompleted = true,
+                        restAfterSet = 120,
+                        completedAt = today.atTime(10, 23).toString()
+                    )
+                )
+
+                // Для запланированной тренировки (workoutId2)
+                dao.insertWorkoutSchedule(
+                    WorkoutScheduleEntity(
+                        workoutId = workoutId2.toInt(),
+                        exerciseId = exerciseIds[2].toInt(), // Тяга блока
+                        plannedSets = 3,
+                        exerciseDuration = 50,
+                        restDuration = 60,
+                        status = "not_completed", // или "in_progress"
+                        orderNumber = 1
+                    )
+                )
             }
         }
     }

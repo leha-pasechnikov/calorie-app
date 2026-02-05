@@ -1,9 +1,11 @@
 package com.example.calorie
 
 import android.annotation.SuppressLint
+import android.app.Activity
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.util.Log
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
@@ -11,6 +13,7 @@ import android.widget.ImageButton
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -32,8 +35,44 @@ class WorkoutFragment : Fragment() {
     private var textWeekRange: TextView? = null
     private var btnPrevWeek: ImageButton? = null
     private var btnNextWeek: ImageButton? = null
+    private var selectedDate: Calendar? = null
+
 
     private lateinit var db: AppDatabase
+
+    private fun getCurrentSelectedDate(): Calendar {
+        // Находим выделенный день в weekContainer
+        for (i in 0 until weekContainer!!.childCount) {
+            val child = weekContainer!!.getChildAt(i)
+            if (child.background != null && child.tag != null) { // если есть фон — значит выделен
+                val timestamp = child.tag as Long
+                val cal = GregorianCalendar()
+                cal.timeInMillis = timestamp
+                return cal
+            }
+        }
+        // Если ничего не выделено — возвращаем сегодня
+        return GregorianCalendar().apply {
+            set(Calendar.HOUR_OF_DAY, 0)
+            set(Calendar.MINUTE, 0)
+            set(Calendar.SECOND, 0)
+            set(Calendar.MILLISECOND, 0)
+        }
+    }
+
+    // В классе WorkoutFragment
+    @RequiresApi(Build.VERSION_CODES.O)
+    private val workoutDetailLauncher = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) { result ->
+        Log.wtf("SIGNAL", "finish(), first=${result.resultCode}. second=${Activity.RESULT_OK}")
+        if (result.resultCode == Activity.RESULT_OK) {
+            selectedDate?.let {
+                updateWorkoutsForDate(it)
+            }
+
+        }
+    }
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -42,6 +81,8 @@ class WorkoutFragment : Fragment() {
     ): View {
         return inflater.inflate(R.layout.fragment_workout, container, false)
     }
+
+
 
     @RequiresApi(Build.VERSION_CODES.O)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -56,9 +97,14 @@ class WorkoutFragment : Fragment() {
         btnPrevWeek = view.findViewById(R.id.btnPrevWeek)
         btnNextWeek = view.findViewById(R.id.btnNextWeek)
 
+
         // Адаптер
-        adapter = WorkoutAdapter {
-            startActivity(Intent(requireContext(), WorkoutDetailActivity::class.java))
+        adapter = WorkoutAdapter { workoutId ->
+            val intent = Intent(requireContext(), WorkoutDetailActivity::class.java).apply {
+                putExtra("workout_id", workoutId)
+            }
+            // Запускаем с ожиданием результата
+            workoutDetailLauncher.launch(intent)
         }
         recyclerView?.adapter = adapter
         recyclerView?.layoutManager = LinearLayoutManager(context)
@@ -103,6 +149,7 @@ class WorkoutFragment : Fragment() {
             inflater = layoutInflater,
             currentMonday = currentMonday,
             onDayClick = { date ->
+                selectedDate = date
                 updateWorkoutsForDate(date)
             },
             todayHighlight = true
@@ -123,7 +170,14 @@ class WorkoutFragment : Fragment() {
             0
         }
 
-        weekContainer?.getChildAt(dayToSelect)?.performClick()
+        val dateToSelect = selectedDate ?: today
+
+        val index = ((dateToSelect.timeInMillis - currentMonday.timeInMillis) / (1000 * 60 * 60 * 24)).toInt()
+
+        if (index in 0..6) {
+            weekContainer?.getChildAt(index)?.performClick()
+        }
+
     }
 
     @RequiresApi(Build.VERSION_CODES.O)
@@ -140,18 +194,17 @@ class WorkoutFragment : Fragment() {
         lifecycleScope.launch {
             val workouts = db.appDao().getWorkoutsByDate(dateStr)
             val uiWorkouts = workouts.map { entity ->
-                // Определяем цвет статуса
-                val statusColor = when (entity.status) {
-                    "completed" -> "green"
-                    "skipped" -> "red"
-                    else -> "yellow" // in_progress
-                }
-                // Создаём UI-модель
-                Workout(
+                WorkoutUiModel(
+                    id = entity.id,
                     startTime = entity.plannedStartTime ?: "00:00",
                     endTime = entity.plannedEndTime ?: "00:00",
                     status = getStatusText(entity.status),
-                    statusColor = statusColor
+                    statusColor = when (entity.status) {
+                        "completed" -> "green"
+                        "skipped" -> "red"
+                        "in_gym" -> "yellow"
+                        else -> "yellow"
+                    }
                 )
             }
             requireActivity().runOnUiThread {
@@ -164,13 +217,15 @@ class WorkoutFragment : Fragment() {
         return when (status) {
             "completed" -> "Завершена"
             "skipped" -> "Пропущена"
+            "in_gym" -> "В зале"
             else -> "Предстоящая"
         }
     }
 }
 
 // --- Модель тренировки для UI ---
-data class Workout(
+data class WorkoutUiModel(
+    val id: Int,
     val startTime: String,
     val endTime: String,
     val status: String,
@@ -179,10 +234,10 @@ data class Workout(
 
 // --- Адаптер для RecyclerView ---
 class WorkoutAdapter(
-    private val onWorkoutClick: (Workout) -> Unit
+    private val onWorkoutClick: (Int) -> Unit
 ) : RecyclerView.Adapter<WorkoutAdapter.ViewHolder>() {
 
-    private var workouts = listOf<Workout>()
+    private var workouts = listOf<WorkoutUiModel>()
 
     inner class ViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
         private val textTime: TextView = itemView.findViewById(R.id.textTime)
@@ -190,7 +245,7 @@ class WorkoutAdapter(
         private val imageWorkout: ImageView = itemView.findViewById(R.id.imageWorkout)
 
         @SuppressLint("SetTextI18n")
-        fun bind(workout: Workout) {
+        fun bind(workout: WorkoutUiModel) {
             textTime.text = "${workout.startTime} – ${workout.endTime}"
             textStatus.text = workout.status
 
@@ -206,7 +261,7 @@ class WorkoutAdapter(
             // Иконка тренировки
             imageWorkout.setImageResource(R.drawable.workout_image)
 
-            itemView.setOnClickListener { onWorkoutClick(workout) }
+            itemView.setOnClickListener { onWorkoutClick(workout.id) }
         }
     }
 
@@ -223,7 +278,7 @@ class WorkoutAdapter(
     override fun getItemCount(): Int = workouts.size
 
     @SuppressLint("NotifyDataSetChanged")
-    fun updateWorkouts(newWorkouts: List<Workout>) {
+    fun updateWorkouts(newWorkouts: List<WorkoutUiModel>) {
         workouts = newWorkouts
         notifyDataSetChanged()
     }

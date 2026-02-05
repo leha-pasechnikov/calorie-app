@@ -28,8 +28,8 @@ interface AppDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertExercise(entity: ExerciseEntity): Long
 
-    @Insert(onConflict = OnConflictStrategy.REPLACE)
-    suspend fun insertExercises(list: List<ExerciseEntity>)
+    @Insert
+    suspend fun insertExercises(list: List<ExerciseEntity>): List<Long>
 
     @Update
     suspend fun updateExercise(entity: ExerciseEntity)
@@ -78,6 +78,19 @@ interface AppDao {
     @Query("SELECT * FROM workouts ORDER BY workout_date DESC")
     suspend fun getWorkouts(): List<WorkoutEntity>
 
+    @Query("SELECT * FROM workouts WHERE id = :id")
+    suspend fun getWorkoutById(id: Int): WorkoutEntity?
+
+    @Query("SELECT * FROM workout_schedule WHERE workout_id = :workoutId ORDER BY order_number")
+    suspend fun getWorkoutScheduleByWorkoutId(workoutId: Int): List<WorkoutScheduleEntity>
+
+    @Query("UPDATE workouts SET status = :status WHERE id = :workoutId")
+    suspend fun updateWorkoutStatus(workoutId: Int, status: String)
+
+    @Query("UPDATE workouts SET elapsedSeconds = :seconds WHERE id = :workoutId")
+    suspend fun updateWorkoutElapsedSeconds(workoutId: Int, seconds: Long)
+
+
     @Query("SELECT * FROM workouts WHERE workout_date = :date")
     suspend fun getWorkoutsByDate(date: String): List<WorkoutEntity>
 
@@ -86,6 +99,7 @@ interface AppDao {
 
     @Insert
     suspend fun insertWorkout(entity: WorkoutEntity): Long
+
 
     @Update
     suspend fun updateWorkout(entity: WorkoutEntity)
@@ -97,8 +111,12 @@ interface AppDao {
     @Query("SELECT * FROM workout_schedule WHERE workout_id = :workoutId ORDER BY order_number")
     suspend fun getWorkoutSchedule(workoutId: Int): List<WorkoutScheduleEntity>
 
+    // В Dao.kt
     @Insert
-    suspend fun insertWorkoutSchedule(entity: WorkoutScheduleEntity): Long
+    suspend fun insertWorkoutSchedule(schedule: WorkoutScheduleEntity): Long
+
+    @Query("UPDATE workout_schedule SET status = :status WHERE id = :scheduleId")
+    suspend fun updateWorkoutScheduleStatus(scheduleId: Int, status: String)
 
     @Update
     suspend fun updateWorkoutSchedule(entity: WorkoutScheduleEntity)
@@ -111,7 +129,7 @@ interface AppDao {
     suspend fun getWorkoutSets(scheduleId: Int): List<WorkoutSetEntity>
 
     @Insert
-    suspend fun insertWorkoutSet(entity: WorkoutSetEntity)
+    suspend fun insertWorkoutSet(set: WorkoutSetEntity)
 
     @Update
     suspend fun updateWorkoutSet(entity: WorkoutSetEntity)

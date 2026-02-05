@@ -71,6 +71,7 @@ data class WorkoutEntity(
     @ColumnInfo(name = "actual_end_datetime") val actualEndDatetime: String?,
     val rating: Int?,
     val notes: String?,
+    val elapsedSeconds: Long = 0, // сколько секунд уже прошло
     @ColumnInfo(name = "created_at") val createdAt: String?
 )
 
