@@ -79,6 +79,9 @@ interface AppDao {
     suspend fun getWorkouts(): List<WorkoutEntity>
 
     @Query("SELECT * FROM workouts WHERE workout_date = :date")
+    suspend fun getWorkoutsByDate(date: String): List<WorkoutEntity>
+
+    @Query("SELECT * FROM workouts WHERE workout_date = :date")
     suspend fun getWorkoutByDate(date: String): WorkoutEntity?
 
     @Insert

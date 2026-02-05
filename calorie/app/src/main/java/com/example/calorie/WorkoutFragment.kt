@@ -2,21 +2,26 @@ package com.example.calorie
 
 import android.annotation.SuppressLint
 import android.content.Intent
+import android.os.Build
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
 import android.widget.ImageButton
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.annotation.RequiresApi
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.calorie.data.AppDatabase
+import com.google.android.material.button.MaterialButton
+import kotlinx.coroutines.launch
+import java.time.LocalDate
 import java.util.Calendar
 import java.util.GregorianCalendar
-import android.widget.ImageView
-
-import com.google.android.material.button.MaterialButton
 
 class WorkoutFragment : Fragment() {
 
@@ -28,101 +33,7 @@ class WorkoutFragment : Fragment() {
     private var btnPrevWeek: ImageButton? = null
     private var btnNextWeek: ImageButton? = null
 
-
-    // Тестовые данные по дням (ключ = день месяца)
-    private val workoutDataByDay = mapOf(
-        1 to listOf(
-            Workout("08:00", "09:00", "Завершена", "green"),
-            Workout("18:00", "19:00", "Пропущена", "red")
-        ),
-        2 to listOf(
-            Workout("07:30", "08:30", "Предстоящая", "yellow")
-        ),
-        3 to emptyList(),
-        4 to listOf(
-            Workout("12:00", "13:00", "Завершена", "green"),
-            Workout("17:00", "18:00", "Завершена", "green")
-        ),
-        5 to listOf(
-            Workout("06:00", "07:00", "Пропущена", "red")
-        ),
-        6 to listOf(
-            Workout("09:00", "10:00", "Предстоящая", "yellow"),
-            Workout("19:00", "20:00", "Предстоящая", "yellow")
-        ),
-        7 to emptyList(),
-        8 to listOf(
-            Workout("08:30", "09:30", "Завершена", "green"),
-            Workout("18:30", "19:30", "Завершена", "green")
-        ),
-        9 to listOf(
-            Workout("07:00", "08:00", "Предстоящая", "yellow")
-        ),
-        10 to emptyList(),
-        11 to listOf(
-            Workout("10:00", "11:00", "Завершена", "green"),
-            Workout("16:00", "17:00", "Пропущена", "red")
-        ),
-        12 to listOf(
-            Workout("06:30", "07:30", "Пропущена", "red")
-        ),
-        13 to listOf(
-            Workout("09:30", "10:30", "Завершена", "green"),
-            Workout("20:00", "21:00", "Предстоящая", "yellow")
-        ),
-        14 to emptyList(),
-        15 to listOf(
-            Workout("08:00", "09:00", "Завершена", "green"),
-            Workout("19:00", "20:00", "Завершена", "green"),
-            Workout("21:00", "22:00", "Предстоящая", "yellow")
-        ),
-        16 to listOf(
-            Workout("07:00", "08:00", "Пропущена", "red")
-        ),
-        17 to emptyList(),
-        18 to listOf(
-            Workout("12:30", "13:30", "Завершена", "green"),
-            Workout("17:30", "18:30", "Завершена", "green")
-        ),
-        19 to listOf(
-            Workout("06:00", "07:00", "Предстоящая", "yellow")
-        ),
-        20 to emptyList(),
-        21 to listOf(
-            Workout("08:15", "09:15", "Пропущена", "red"),
-            Workout("18:45", "19:45", "Предстоящая", "yellow")
-        ),
-        22 to listOf(
-            Workout("10:00", "11:00", "Завершена", "green")
-        ),
-        23 to emptyList(),
-        24 to listOf(
-            Workout("07:45", "08:45", "Завершена", "green"),
-            Workout("17:15", "18:15", "Пропущена", "red"),
-            Workout("20:30", "21:30", "Предстоящая", "yellow")
-        ),
-        25 to listOf(
-            Workout("09:00", "10:00", "Завершена", "green")
-        ),
-        26 to emptyList(),
-        27 to listOf(
-            Workout("06:30", "07:30", "Пропущена", "red"),
-            Workout("18:00", "19:00", "Завершена", "green")
-        ),
-        28 to listOf(
-            Workout("08:20", "09:20", "Предстоящая", "yellow")
-        ),
-        29 to emptyList(),
-        30 to listOf(
-            Workout("11:00", "12:00", "Завершена", "green"),
-            Workout("16:30", "17:30", "Завершена", "green"),
-            Workout("19:45", "20:45", "Пропущена", "red")
-        ),
-        31 to listOf(
-            Workout("07:00", "08:00", "Предстоящая", "yellow"),
-            Workout("17:00", "18:00", "Предстоящая", "yellow")
-        )
-    )
+    private lateinit var db: AppDatabase
 
     override fun onCreateView(
         inflater: LayoutInflater,
@@ -132,8 +43,11 @@ class WorkoutFragment : Fragment() {
         return inflater.inflate(R.layout.fragment_workout, container, false)
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         super.onViewCreated(view, savedInstanceState)
+
+        db = AppDatabase.getInstance(requireContext())
 
         // Инициализация View
         weekContainer = view.findViewById(R.id.weekContainer)
@@ -143,7 +57,7 @@ class WorkoutFragment : Fragment() {
         btnNextWeek = view.findViewById(R.id.btnNextWeek)
 
         // Адаптер
-        adapter = WorkoutAdapter { workout ->
+        adapter = WorkoutAdapter {
             startActivity(Intent(requireContext(), WorkoutDetailActivity::class.java))
         }
         recyclerView?.adapter = adapter
@@ -168,8 +82,8 @@ class WorkoutFragment : Fragment() {
     }
 
     @SuppressLint("SetTextI18n")
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun refreshWeek() {
-        // Обновляем заголовок
         val sunday = GregorianCalendar().apply {
             timeInMillis = currentMonday.timeInMillis
             add(Calendar.DAY_OF_MONTH, 6)
@@ -184,7 +98,6 @@ class WorkoutFragment : Fragment() {
         val sundayStr = "$sundayDay.${sundayMonth.toString().padStart(2, '0')}"
         textWeekRange?.text = "$mondayStr – $sundayStr"
 
-        // Генерируем календарь
         CalendarHelper.setupWeek(
             container = weekContainer!!,
             inflater = layoutInflater,
@@ -213,21 +126,55 @@ class WorkoutFragment : Fragment() {
         weekContainer?.getChildAt(dayToSelect)?.performClick()
     }
 
+    @RequiresApi(Build.VERSION_CODES.O)
     private fun updateWorkoutsForDate(date: Calendar) {
-        val dayOfMonth = date.get(Calendar.DAY_OF_MONTH)
-        val workouts = workoutDataByDay[dayOfMonth] ?: emptyList()
-        adapter?.updateWorkouts(workouts)
+        // Преобразуем Calendar в строку даты "YYYY-MM-DD"
+        val localDate = LocalDate.of(
+            date.get(Calendar.YEAR),
+            date.get(Calendar.MONTH) + 1,
+            date.get(Calendar.DAY_OF_MONTH)
+        )
+        val dateStr = localDate.toString()
+
+        // Загружаем тренировки из БД
+        lifecycleScope.launch {
+            val workouts = db.appDao().getWorkoutsByDate(dateStr)
+            val uiWorkouts = workouts.map { entity ->
+                // Определяем цвет статуса
+                val statusColor = when (entity.status) {
+                    "completed" -> "green"
+                    "skipped" -> "red"
+                    else -> "yellow" // in_progress
+                }
+                // Создаём UI-модель
+                Workout(
+                    startTime = entity.plannedStartTime ?: "00:00",
+                    endTime = entity.plannedEndTime ?: "00:00",
+                    status = getStatusText(entity.status),
+                    statusColor = statusColor
+                )
+            }
+            requireActivity().runOnUiThread {
+                adapter?.updateWorkouts(uiWorkouts)
+            }
+        }
+    }
+
+    private fun getStatusText(status: String): String {
+        return when (status) {
+            "completed" -> "Завершена"
+            "skipped" -> "Пропущена"
+            else -> "Предстоящая"
+        }
     }
 }
 
-
-// --- Модель тренировки ---
+// --- Модель тренировки для UI ---
 data class Workout(
     val startTime: String,
     val endTime: String,
     val status: String,
-    val statusColor: String,
-    val imageRes: Int = R.drawable.workout_image // по умолчанию
+    val statusColor: String
 )
 
 // --- Адаптер для RecyclerView ---
@@ -256,8 +203,8 @@ class WorkoutAdapter(
             }
             textStatus.setBackgroundResource(bgRes)
 
-            // Иконка тренировки (можно заменить на разные)
-            imageWorkout.setImageResource(workout.imageRes)
+            // Иконка тренировки
+            imageWorkout.setImageResource(R.drawable.workout_image)
 
             itemView.setOnClickListener { onWorkoutClick(workout) }
         }
