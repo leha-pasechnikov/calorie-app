@@ -1,12 +1,12 @@
-from typing import Union, Literal
-
 from google.genai import Client, types
+from typing import Union, Literal
 from PIL import Image
+import requests
+import logging
 import json
 import re
-import requests
+
 from env import API_KEY
-import logging
 
 logger = logging.getLogger("api.analyze")
 
@@ -77,6 +77,7 @@ async def analyze_food_json(name: str) -> Union[Literal[False], dict]:
 
 
 async def get_test_data() -> str:
+    """Подставляет тестовые данные для ответа от analyze_food_image()"""
     if not hasattr(get_test_data, 'counter'):
         get_test_data.counter = 0
     test_data = [
@@ -170,7 +171,10 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=Fa
         client = Client(api_key=api_key)
     except Exception as err:
         logger.error(f"Ошибка инициализации клиента: {err}")
-        return {"status": "error", "message": "Ошибка сервиса распознавания фото"}
+        return {
+            "status": "error",
+            "message": "Ошибка сервиса распознавания фото"
+        }
 
     prompt = """Ты — эксперт по диетологии. Проанализируй фото и верни ТОЛЬКО JSON. Сравнивай с данными из USDA, Роспотребнадзор, Open Food Facts.
 
@@ -227,16 +231,23 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=Fa
                     data = json.loads(json_match.group())
                     return data
                 except json.JSONDecodeError:
-                    pass
+                    logger.error(f"Повторная ошибка обработки JSON")
 
-            return {"status": "error", "message": "Ошибка формирования ответа"}
+            return {
+                "status": "error",
+                "message": "Ошибка формирования ответа"
+            }
 
     except Exception as err:
         logger.error(f"Ошибка при анализе: {err}")
-        return {"status": "error", "message": "Ошибка при анализе изображения"}
+        return {
+            "status": "error",
+            "message": "Ошибка при анализе изображения"
+        }
 
 
 async def run() -> dict:
+    """Отладочная функция для анализа изображений"""
     # path = "image/3.webp" # Опасно
     # path = "image/4.webp" # Не еда
     path = "image/2.jpg"  # Еда
