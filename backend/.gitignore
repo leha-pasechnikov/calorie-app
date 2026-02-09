@@ -1,7 +1,7 @@
 .venv/
 venv/
 .env
-env.py
+src/env.py
 api.log
 *.log
 __pycache__/

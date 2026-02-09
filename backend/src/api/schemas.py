@@ -49,7 +49,7 @@ class NutritionSearch(BaseModel):
     proteins: float = Field(ge=0.0, description="Белки (г) на 100 г")
     fats: float = Field(ge=0.0, description="Жиры (г) на 100 г")
     carbohydrates: float = Field(ge=0.0, description="Углеводы (г) на 100 г")
-    weight: float = Field(default=100.0, description="Вес в граммах (всегда 100 г)")
+    weight: float = Field(gt=0, default=100.0, description="Вес в граммах (всегда 100 г)")
 
 
 class FoodResponseSearch(BaseModel):

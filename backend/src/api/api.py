@@ -8,9 +8,9 @@ import time
 import sys
 import io
 
-from models import *
-from analyze import analyze_food_image, analyze_food_json
-from env import is_production
+from src.api.analyze import analyze_food_image, analyze_food_json
+from src.env import is_production
+from schemas import *
 
 # данные последнего использования
 _client_locks = TTLCache(maxsize=1000, ttl=60)
@@ -21,7 +21,7 @@ logging.basicConfig(
     format="%(asctime)s - %(name)s - %(levelname)s - %(message)s",
     handlers=[
         logging.StreamHandler(sys.stdout),
-        RotatingFileHandler("api.log", maxBytes=5 * 1024 * 1024, backupCount=3)
+        RotatingFileHandler("../api.log", maxBytes=5 * 1024 * 1024, backupCount=3)
     ]
 )
 logger = logging.getLogger("api")

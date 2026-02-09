@@ -1,12 +1,13 @@
 from google.genai import Client, types
 from typing import Union, Literal
+from statistics import median
 from PIL import Image
 import requests
 import logging
 import json
 import re
 
-from env import API_KEY
+from src.env import API_KEY
 
 logger = logging.getLogger("api.analyze")
 
@@ -23,8 +24,6 @@ async def analyze_food_json(name: str) -> Union[Literal[False], dict]:
         data=params,
         timeout=10
     )
-
-    from statistics import median
 
     if response.status_code == 200:
         data = response.json()
@@ -250,7 +249,7 @@ async def run() -> dict:
     """Отладочная функция для анализа изображений"""
     # path = "image/3.webp" # Опасно
     # path = "image/4.webp" # Не еда
-    path = "image/2.jpg"  # Еда
+    path = "../image/2.jpg"  # Еда
     # path = 'image/1.jpg' # Еда
     photo = Image.open(path)
     result = await analyze_food_image(photo, test=True)
