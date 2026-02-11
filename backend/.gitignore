@@ -1,10 +1,15 @@
 .venv/
 venv/
 .env
-env.py
+src/env.py
 api.log
 *.log
 __pycache__/
+*.pyc
 *.py[cod]
 .idea/
 .vscode/
+/htmlcov
+.coverage
+.pytest_cache/
+coverage.xml
