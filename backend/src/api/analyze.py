@@ -137,6 +137,7 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_an
                 config=config
             )
             text = response.text
+        text = text.strip()
         if text.startswith('```json'):
             text = text[7:]
         if text.endswith('```'):

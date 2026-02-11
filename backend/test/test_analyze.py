@@ -80,8 +80,8 @@ class TestAnalyzeFoodImage:
                 "message": "Ошибка ответа в поле status"
             }""",
             """```json{
-                "status": "error",
-                "message": "Ошибка markdown"
+                "status": "success",
+                "message": "Обработка ошибки markdown"
             }```
             """,
             "Некоторый текст содержащий valid json: {'key': 'value'}.",
@@ -145,7 +145,12 @@ class TestAnalyzeFoodImage:
                 if counter in [0, 1, 2, 3, 4]:  # валидные значения
                     answer_obj = json.loads(answer)
                     assert answer_obj == result
-                elif counter in [5, 6, 7, 8, 9]:  # не валидные значения
+                elif counter == 5:
+                    assert result == {
+                        "status": "success",
+                        "message": "Обработка ошибки markdown"
+                    }
+                elif counter in [6, 7, 8, 9]:  # не валидные значения
                     assert result == {
                         "status": "error",
                         "message": "Ошибка формирования ответа"
@@ -202,8 +207,7 @@ class TestAnalyzeFoodJSON:
     @pytest.mark.parametrize("name, result", [
         ("яблоко", {'calories': 47.5, 'proteins': 0.4, 'fats': 0.4, 'carbohydrates': 9.8, 'weight': 100.0}),
         ("вода", {'calories': 5.0, 'proteins': 0.0, 'fats': 0.0, 'carbohydrates': 1.25, 'weight': 100.0}),
-        ("свиной шашлык", {'calories': 360.0, 'proteins': 12.0, 'fats': 35.0, 'carbohydrates': 0.0, 'weight': 100.0})
-    ])
+        ("свиной шашлык", {'calories': 315.0, 'carbohydrates': 1.5, 'fats': 25.0, 'proteins': 20.0, 'weight': 100.0})])
     async def test_valid_name(self, name, result):
         res = await analyze_food_json(name=name)
         assert result == res

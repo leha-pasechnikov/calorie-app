@@ -1,11 +1,12 @@
 from unittest.mock import patch, AsyncMock
 from fastapi.testclient import TestClient
+from fastapi import Request
 from io import BytesIO
 from PIL import Image
 import asyncio
 import pytest
 
-from src.api.api import app
+from src.api.api import app, log_requests
 
 client = TestClient(app)
 
@@ -252,7 +253,8 @@ class TestAnalyzeFoodEndpoint:
 class TestSearchEndpoint:
     """Тестирование эндпоинта /search/"""
 
-    def test_search_existing_food(self):
+    @pytest.mark.asyncio
+    async def test_search_existing_food(self):
         """Проверяет поиск существующего продукта (например, 'яблоко')."""
         response = client.get("/search/", params={"food_name": "шашлык"})
         assert response.status_code == 200
@@ -272,7 +274,8 @@ class TestSearchEndpoint:
         assert nutrition["fats"] > 0
         assert nutrition["carbohydrates"] > 0
 
-    def test_search_nonexistent_food(self):
+    @pytest.mark.asyncio
+    async def test_search_nonexistent_food(self):
         """Проверяет поиск несуществующего продукта."""
         response = client.get("/search/", params={"food_name": "бррр123xyz"})
         assert response.status_code == 200
@@ -280,16 +283,31 @@ class TestSearchEndpoint:
         assert "status" in data
         assert data["status"] == "not_found"
 
-    def test_search_empty_query(self):
+    @pytest.mark.asyncio
+    async def test_search_empty_query(self):
         """Пустой запрос → 422 ошибка валидации (из-за min_length=1)."""
         response = client.get("/search/", params={"food_name": ""})
         assert response.status_code == 422
 
-    def test_search_too_long_query(self):
+    @pytest.mark.asyncio
+    async def test_search_too_long_query(self):
         """Слишком длинный запрос → 422 ошибка."""
         long_name = "a" * 101
         response = client.get("/search/", params={"food_name": long_name})
         assert response.status_code == 422
+
+    @pytest.mark.asyncio
+    async def test_search_timeout(self):
+        """Проверяет обработку таймаута при поиске продукта."""
+        with patch("src.api.api.analyze_food_json", new_callable=AsyncMock) as mock_analyze:
+            # Имитируем таймаут
+            mock_analyze.side_effect = asyncio.TimeoutError()
+            response = client.get("/search/", params={"food_name": "яблоко"})
+            assert response.status_code == 200
+            data = response.json()
+            assert "status" in data
+            assert data["status"] == "error"
+            assert "message" in data
 
 
 class TestLoggingMiddleware:
@@ -318,3 +336,32 @@ class TestLoggingMiddleware:
             assert "URL: /health" in log_msg
             assert "Duration:" in log_msg
             assert "Client: testclient" in log_msg
+
+    @pytest.mark.asyncio
+    async def test_middleware_logs_exception_when_call_next_fails(self):
+        """Тестируем middleware напрямую: call_next бросает исключение."""
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/test",
+            "query_string": b"",
+            "headers": [],
+            "client": ("127.0.0.1", 8000),
+        }
+        request = Request(scope)
+
+        # call_next, который падает
+        async def failing_call_next(req):
+            raise ValueError(f"Ошибка внутри call_next {req}")
+
+        with patch("src.api.api.logger") as mock_logger:
+            with pytest.raises(ValueError, match="Ошибка внутри call_next"):
+                await log_requests(request, failing_call_next)
+            mock_logger.error.assert_called_once()
+            log_msg = mock_logger.error.call_args[0][0]
+            assert "Request failed" in log_msg
+            assert "Method: GET" in log_msg
+            assert "URL: /test" in log_msg
+            assert "Client: 127.0.0.1" in log_msg
+            assert "Ошибка внутри call_next" in log_msg
+            assert "Duration:" in log_msg

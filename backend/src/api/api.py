@@ -67,11 +67,6 @@ async def analyze_food(
         # Открытие изображения
         try:
             image = Image.open(io.BytesIO(contents))
-            if image.width < 10 or image.height < 10:
-                raise HTTPException(
-                    status_code=400,
-                    detail="Изображение слишком маленькое"
-                )
             if image.mode in ('RGBA', 'LA', 'P'):
                 image = image.convert('RGB')
         except Exception:
