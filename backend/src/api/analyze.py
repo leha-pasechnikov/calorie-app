@@ -156,6 +156,12 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_an
 
     except Exception as err:
         logger.error(f"Ошибка при анализе: {err}")
+        print(err)
+        if '429' in str(err) and 'RESOURCE_EXHAUSTED' in str(err):
+            return {
+                "status": "error",
+                "message": "Ограничение лимита"
+            }
         return {
             "status": "error",
             "message": "Ошибка при анализе изображения"

@@ -6,6 +6,7 @@ import pytest
 import json
 
 from src.api.analyze import analyze_food_image, analyze_food_json
+from src.env import skip_api_request
 
 
 class TestAnalyzeFoodImage:
@@ -160,17 +161,17 @@ class TestAnalyzeFoodImage:
 
     @pytest.mark.asyncio
     async def test_critical_error(self):
-        """Проверка реального изображения"""
+        """Проверка ошибки при анализе изображения"""
         error_image = Mock(spec=Image.Image)
         error_image.size = (500, 500)
-        result = await analyze_food_image(error_image)
+        result = await analyze_food_image(error_image, test_answer={"неверный тип ответа"}) # type: ignore
         assert result == {
             "status": "error",
             "message": "Ошибка при анализе изображения"
         }
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="требует стабильного vpn")
+    @pytest.mark.skipif(skip_api_request, reason="требует стабильного vpn")
     @pytest.mark.parametrize("path", ["../src/image/2.jpg", "../src/image/1.jpg"])
     async def test_text_real_success(self, path):
         """Проверка реального корректного изображения"""
@@ -178,10 +179,13 @@ class TestAnalyzeFoodImage:
         photo_path = current_dir / path
         photo = Image.open(photo_path.resolve())
         result = await analyze_food_image(photo)
-        assert result.get("status") == "success"
+        assert result.get("status") == "success" or result == {
+            "status": "error",
+            "message": "Ограничение лимита"
+        }
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="требует стабильного vpn")
+    @pytest.mark.skipif(skip_api_request, reason="требует стабильного vpn")
     async def test_text_real_danger(self):
         """Проверка реального опасного изображения"""
         current_dir = Path(__file__).parent
@@ -189,17 +193,23 @@ class TestAnalyzeFoodImage:
         photo = Image.open(photo_path.resolve())
         result = await analyze_food_image(photo)
         print(result)
-        assert result.get("status") == "danger"
+        assert result.get("status") == "danger" or result == {
+            "status": "error",
+            "message": "Ограничение лимита"
+        }
 
     @pytest.mark.asyncio
-    @pytest.mark.skip(reason="требует стабильного vpn")
+    @pytest.mark.skipif(skip_api_request, reason="требует стабильного vpn")
     async def test_text_real_not_found(self):
         """Проверка реального изображения без еды"""
         current_dir = Path(__file__).parent
         photo_path = current_dir / "../src/image/4.webp"
         photo = Image.open(photo_path.resolve())
         result = await analyze_food_image(photo)
-        assert result.get("status") == "not_found"
+        assert result.get("status") == "not_found" or result == {
+            "status": "error",
+            "message": "Ограничение лимита"
+        }
 
 
 class TestAnalyzeFoodJSON:

@@ -11,7 +11,6 @@ subprocess.run([
     "--cov-report=html",
     "--cov-report=term-missing",
     "--color=yes",
-    # "--run-skipped",
     "-v"
 ])
 
