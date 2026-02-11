@@ -10,7 +10,7 @@ import io
 
 from src.api.analyze import analyze_food_image, analyze_food_json
 from src.env import is_production
-from schemas import *
+from src.api.schemas import *
 
 # данные последнего использования
 _client_locks = TTLCache(maxsize=1000, ttl=60)
@@ -47,20 +47,16 @@ async def analyze_food(
         lock = _client_locks[client_ip]
 
     async with lock:
-
-        # Проверка имени файла
-        if not file.filename:
-            raise HTTPException(400, "Файл не имеет имени")
+        # Чтение файла
+        contents = await file.read()
 
         # Проверка типа файла
         allowed_types = {"image/jpeg", "image/png"}
         if file.content_type not in allowed_types:
-            raise HTTPException(400, "Поддерживаются только JPEG и PNG")
-
-        # Чтение файла
-        contents = await file.read()
-        if len(contents) == 0:
-            raise HTTPException(400, "Пустой файл")
+            raise HTTPException(
+                status_code=400,
+                detail="Поддерживаются только JPEG и PNG"
+            )
 
         if len(contents) > max_file_size:
             raise HTTPException(
@@ -72,7 +68,10 @@ async def analyze_food(
         try:
             image = Image.open(io.BytesIO(contents))
             if image.width < 10 or image.height < 10:
-                raise HTTPException(400, "Изображение слишком маленькое")
+                raise HTTPException(
+                    status_code=400,
+                    detail="Изображение слишком маленькое"
+                )
             if image.mode in ('RGBA', 'LA', 'P'):
                 image = image.convert('RGB')
         except Exception:
@@ -102,7 +101,10 @@ async def analyze_food(
         elif status == 'danger':
             return DangerResponse(**result)
         elif status == 'error':
-            raise HTTPException(status_code=400, detail=result.get('message'))
+            raise HTTPException(
+                status_code=400,
+                detail=result.get('message')
+            )
         else:
             # Некорректный статус от Gemini API
             raise HTTPException(
