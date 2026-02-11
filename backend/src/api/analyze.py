@@ -6,9 +6,10 @@ import requests
 import logging
 import json
 
-from src.env import API_KEY, is_production
+from src.env import API_KEY, is_production, work_models
 
 logger = logging.getLogger("api.analyze")
+current_model_index = 0
 
 
 async def analyze_food_json(name: str) -> Union[Literal[False], dict]:
@@ -76,6 +77,7 @@ async def analyze_food_json(name: str) -> Union[Literal[False], dict]:
 
 async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_answer: str = "") -> dict:
     """Анализирует изображение еды через Gemini API"""
+    global current_model_index
 
     width, height = image.size
 
@@ -131,8 +133,9 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_an
         if test_answer and not is_production:
             text = test_answer
         else:
+            model = work_models[current_model_index % len(work_models)]
             response = client.models.generate_content(
-                model="gemini-3-flash-preview",
+                model=model,
                 contents=[prompt, image],
                 config=config
             )
@@ -156,12 +159,21 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_an
 
     except Exception as err:
         logger.error(f"Ошибка при анализе: {err}")
-        print(err)
+
         if '429' in str(err) and 'RESOURCE_EXHAUSTED' in str(err):
+            current_model_index += 1
             return {
                 "status": "error",
                 "message": "Ограничение лимита"
             }
+
+        elif '400' in str(err) and 'INVALID_ARGUMENT' in str(err):
+            current_model_index += 1
+            return {
+                "status": "error",
+                "message": "Неверные аргументы"
+            }
+
         return {
             "status": "error",
             "message": "Ошибка при анализе изображения"
