@@ -5,9 +5,8 @@ from PIL import Image
 import requests
 import logging
 import json
-import re
 
-from src.env import API_KEY
+from src.env import API_KEY, is_production
 
 logger = logging.getLogger("api.analyze")
 
@@ -75,82 +74,7 @@ async def analyze_food_json(name: str) -> Union[Literal[False], dict]:
         return False
 
 
-async def get_test_data() -> str:
-    """Подставляет тестовые данные для ответа от analyze_food_image()"""
-    if not hasattr(get_test_data, 'counter'):
-        get_test_data.counter = 0
-    test_data = [
-        {
-            "status": "success",
-            "food_items": {
-                "куриная грудка гриль": {
-                    "proteins": 45.0,
-                    "fats": 5.0,
-                    "carbohydrates": 0.0,
-                    "weight": 180,
-                    "water": 126.0,
-                    "benefit_score": 4.5
-                },
-                "отварной рис": {
-                    "proteins": 4.0,
-                    "fats": 1.0,
-                    "carbohydrates": 38.0,
-                    "weight": 150,
-                    "water": 105.0,
-                    "benefit_score": 3.8
-                },
-                "салат из свежих овощей": {
-                    "proteins": 2.0,
-                    "fats": 0.0,
-                    "carbohydrates": 8.0,
-                    "weight": 120,
-                    "water": 108.0,
-                    "benefit_score": 4.8
-                }
-            }
-        },
-        {
-            "status": "success",
-            "food_items": {
-                "Мясное ассорти с картофелем фри, соусом и огурцами": {
-                    "proteins": 129.5,
-                    "fats": 145.0,
-                    "carbohydrates": 61.0,
-                    "water": 480.0,
-                    "weight": 850,
-                    "benefit_score": 2.5
-                }
-            }
-        },
-        {
-            "status": "not_found",
-            "message": "На изображении не найдено продуктов питания"
-        },
-        {
-            "status": "danger",
-            "message": "Это ядовитый гриб - мухомор красный.",
-            "food_items": {
-                "мухомор": {
-                    "proteins": 2.0,
-                    "fats": 0.0,
-                    "carbohydrates": 3.0,
-                    "water": 60.0,
-                    "weight": 100,
-                    "benefit_score": 0.0
-                }
-            }
-        },
-        {
-            'status': 'error',
-            'message': 'Ошибка при анализе изображения'
-        }
-    ]
-    result = test_data[get_test_data.counter % len(test_data)]
-    get_test_data.counter += 1
-    return json.dumps(result, ensure_ascii=False)
-
-
-async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=False) -> dict:
+async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test_answer: str = "") -> dict:
     """Анализирует изображение еды через Gemini API"""
 
     width, height = image.size
@@ -204,8 +128,8 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=Fa
     )
 
     try:
-        if test:
-            text = await get_test_data()
+        if test_answer and not is_production:
+            text = test_answer
         else:
             response = client.models.generate_content(
                 model="gemini-3-flash-preview",
@@ -224,14 +148,6 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=Fa
 
         except json.JSONDecodeError:
             logger.error(f"Ошибка обработки JSON")
-            json_match = re.search(r'\{.*}', text, re.DOTALL)
-            if json_match:
-                try:
-                    data = json.loads(json_match.group())
-                    return data
-                except json.JSONDecodeError:
-                    logger.error(f"Повторная ошибка обработки JSON")
-
             return {
                 "status": "error",
                 "message": "Ошибка формирования ответа"
@@ -243,22 +159,3 @@ async def analyze_food_image(image: Image.Image, api_key: str = API_KEY, test=Fa
             "status": "error",
             "message": "Ошибка при анализе изображения"
         }
-
-
-async def run() -> dict:
-    """Отладочная функция для анализа изображений"""
-    # path = "image/3.webp" # Опасно
-    # path = "image/4.webp" # Не еда
-    path = "../image/2.jpg"  # Еда
-    # path = 'image/1.jpg' # Еда
-    photo = Image.open(path)
-    result = await analyze_food_image(photo, test=True)
-    return result
-
-
-if __name__ == "__main__":
-    import asyncio
-
-    res = asyncio.run(run())
-    # res = asyncio.run(analyze_food_json('pepsi'))
-    print(res)
