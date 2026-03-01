@@ -1,4 +1,4 @@
-package com.example.calorie.ui.dialog
+package com.example.calorie
 
 import android.app.Dialog
 import android.os.Bundle
@@ -7,7 +7,6 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.fragment.app.DialogFragment
 import androidx.lifecycle.lifecycleScope
-import com.example.calorie.R
 import com.example.calorie.data.AppDatabase
 import com.example.calorie.data.FoodPhotoEntity
 import com.google.android.material.textfield.TextInputEditText
@@ -20,22 +19,24 @@ class EditFoodDialogFragment : DialogFragment() {
     companion object {
         private const val ARG_FOOD_PHOTO_ID = "food_photo_id"
         private const val ARG_FOOD_PHOTO_PATH = "food_photo_path"
+        private const val ARG_SELECTED_DATE_MILLIS = "selected_date_millis"
 
-        fun newInstance(photoId: Int, photoPath: String?) = EditFoodDialogFragment().apply {
-            arguments = Bundle().apply {
-                putInt(ARG_FOOD_PHOTO_ID, photoId)
-                putString(ARG_FOOD_PHOTO_PATH, photoPath)
+        fun newInstance(photoId: Int, photoPath: String?, selectedDateMillis: Long) =
+            EditFoodDialogFragment().apply {
+                arguments = Bundle().apply {
+                    putInt(ARG_FOOD_PHOTO_ID, photoId)
+                    putString(ARG_FOOD_PHOTO_PATH, photoPath)
+                    putLong(ARG_SELECTED_DATE_MILLIS, selectedDateMillis)
+                }
             }
-        }
     }
 
     private var listener: OnFoodEditedListener? = null
-    // 🔥 Выносим photo как свойство класса
     private var photo: FoodPhotoEntity? = null
 
     interface OnFoodEditedListener {
-        fun onFoodUpdated()
-        fun onFoodDeleted()
+        fun onFoodUpdated(selectedDateMillis: Long)
+        fun onFoodDeleted(selectedDateMillis: Long)
     }
 
     fun setListener(listener: OnFoodEditedListener) {
@@ -49,7 +50,6 @@ class EditFoodDialogFragment : DialogFragment() {
         return activity?.let { activity ->
             val view = layoutInflater.inflate(R.layout.dialog_edit_food, null)
 
-            // Поля ввода
             val editName = view.findViewById<TextInputEditText>(R.id.editName)
             val editWeight = view.findViewById<TextInputEditText>(R.id.editWeight)
             val editCalories = view.findViewById<TextInputEditText>(R.id.editCalories)
@@ -62,7 +62,6 @@ class EditFoodDialogFragment : DialogFragment() {
             val btnCancel = view.findViewById<Button>(R.id.btnCancel)
             val btnDelete = view.findViewById<Button>(R.id.btnDelete)
 
-            // 🔥 Загружаем данные и сохраняем в свойство класса
             lifecycleScope.launch {
                 val db = AppDatabase.getInstance(requireContext())
                 photo = db.appDao().getFoodPhotoById(photoId)
@@ -78,7 +77,6 @@ class EditFoodDialogFragment : DialogFragment() {
                 }
             }
 
-            // Сохранение
             btnSave.setOnClickListener {
                 lifecycleScope.launch {
                     val updated = FoodPhotoEntity(
@@ -91,7 +89,6 @@ class EditFoodDialogFragment : DialogFragment() {
                         carbs = editCarbs.text.toString().toDoubleOrNull() ?: 0.0,
                         water = editWater.text.toString().toDoubleOrNull() ?: 0.0,
                         weight = editWeight.text.toString().toDoubleOrNull() ?: 0.0,
-                        // 🔥 Теперь photo доступна
                         takenDatetime = photo?.takenDatetime ?: "",
                         createdAt = photo?.createdAt
                     )
@@ -101,13 +98,13 @@ class EditFoodDialogFragment : DialogFragment() {
 
                     withContext(Dispatchers.Main) {
                         Toast.makeText(context, "✅ Сохранено", Toast.LENGTH_SHORT).show()
-                        listener?.onFoodUpdated()
+                        val selectedDateMillis = requireArguments().getLong(ARG_SELECTED_DATE_MILLIS)
+                        listener?.onFoodUpdated(selectedDateMillis)
                         dismiss()
                     }
                 }
             }
 
-            // Удаление
             btnDelete.setOnClickListener {
                 AlertDialog.Builder(activity)
                     .setTitle("Удалить блюдо?")
@@ -119,7 +116,8 @@ class EditFoodDialogFragment : DialogFragment() {
 
                             withContext(Dispatchers.Main) {
                                 Toast.makeText(context, "🗑️ Удалено", Toast.LENGTH_SHORT).show()
-                                listener?.onFoodDeleted()
+                                val selectedDateMillis = requireArguments().getLong(ARG_SELECTED_DATE_MILLIS)
+                                listener?.onFoodDeleted(selectedDateMillis)
                                 dismiss()
                             }
                         }
@@ -128,7 +126,6 @@ class EditFoodDialogFragment : DialogFragment() {
                     .show()
             }
 
-            // Отмена
             btnCancel.setOnClickListener { dismiss() }
 
             AlertDialog.Builder(activity)

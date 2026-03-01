@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.calorie
 
 import android.Manifest
@@ -192,7 +194,7 @@ class CameraActivity : AppCompatActivity() {
 
             lifecycleScope.launch(Dispatchers.IO) {
                 // 1. Ждём завершения API и записи в БД
-                val success = sendToApiAndSave(compressedPath)
+                sendToApiAndSave(compressedPath)
 
                 // 2. Только после этого возвращаем результат
                 withContext(Dispatchers.Main) {

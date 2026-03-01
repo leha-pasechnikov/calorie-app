@@ -21,7 +21,6 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.calorie.data.AppDatabase
 import com.example.calorie.data.FoodPhotoEntity
-import com.example.calorie.ui.dialog.EditFoodDialogFragment
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
@@ -73,30 +72,28 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         db = AppDatabase.getInstance(requireContext())
+        // В onViewCreated, где инициализируется адаптер:
         foodPhotoAdapter = FoodPhotoAdapter { photo ->
-            // 🔥 Открытие диалога редактирования
-            val dialog = EditFoodDialogFragment.newInstance(photo.id, photo.photoPath)
+            val dialog = EditFoodDialogFragment.newInstance(
+                photo.id,
+                photo.photoPath,
+                selectedDate.timeInMillis
+            )
             dialog.setListener(object : EditFoodDialogFragment.OnFoodEditedListener {
-                override fun onFoodUpdated() {
-                    // Обновляем данные для текущей даты
-                    val today = Calendar.getInstance().apply {
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
+                override fun onFoodUpdated(selectedDateMillis: Long) {
+                    // 🔥 Восстанавливаем Calendar и обновляем UI
+                    val calendar = Calendar.getInstance().apply {
+                        timeInMillis = selectedDateMillis
                     }
-                    updateUIForDate(today)
+                    // 🔥 Принудительно обновляем UI для этой даты
+                    updateUIForDate(calendar)
                 }
 
-                override fun onFoodDeleted() {
-                    // То же обновление после удаления
-                    val today = Calendar.getInstance().apply {
-                        set(Calendar.HOUR_OF_DAY, 0)
-                        set(Calendar.MINUTE, 0)
-                        set(Calendar.SECOND, 0)
-                        set(Calendar.MILLISECOND, 0)
+                override fun onFoodDeleted(selectedDateMillis: Long) {
+                    val calendar = Calendar.getInstance().apply {
+                        timeInMillis = selectedDateMillis
                     }
-                    updateUIForDate(today)
+                    updateUIForDate(calendar)
                 }
             })
             dialog.show(parentFragmentManager, "EditFoodDialog")
@@ -186,10 +183,17 @@ class HomeFragment : Fragment() {
         )
         val dateStr = localDate.toString() // "YYYY-MM-DD"
 
+        android.util.Log.d("DATE_DEBUG", "Запрос даты: $dateStr")
+
         // Загружаем данные асинхронно
         lifecycleScope.launch {
             val client = db.appDao().getClient()
             val foodPhotos = db.appDao().getFoodPhotosByDate(dateStr)
+
+            android.util.Log.d("DATE_DEBUG", "Найдено записей: ${foodPhotos.size}")
+            foodPhotos.forEach {
+                android.util.Log.d("DATE_DEBUG", "  - ${it.name}, taken: ${it.takenDatetime}")
+            }
 
             // Считаем суммы
             val consumedCalories = foodPhotos.sumOf { it.calories ?: 0 }

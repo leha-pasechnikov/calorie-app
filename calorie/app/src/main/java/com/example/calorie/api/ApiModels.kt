@@ -12,29 +12,6 @@ data class ApiFoodItem(
     val benefit_score: Float
 )
 
-// === Варианты ответов ===
-
-data class ApiSuccessResponse(
-    val status: String = "success",
-    val food_items: Map<String, ApiFoodItem>
-)
-
-data class ApiNotFoundResponse(
-    val status: String = "not_found",
-    val message: String
-)
-
-data class ApiErrorResponse(
-    val status: String = "error",
-    val message: String
-)
-
-data class ApiDangerResponse(
-    val status: String = "danger",
-    val message: String,
-    val food_items: Map<String, ApiFoodItem>
-)
-
 // === Обёртка для удобного парсинга ===
 sealed class ApiAnalyzeResult {
     data class Success(val foodItems: Map<String, ApiFoodItem>) : ApiAnalyzeResult()

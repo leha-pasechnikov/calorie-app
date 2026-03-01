@@ -3,7 +3,7 @@ package com.example.calorie.api
 import com.google.gson.Gson
 import com.google.gson.JsonParser
 import okhttp3.ResponseBody
-import retrofit2.Response  // ← ВАЖНО: retrofit2, а не okhttp3!
+import retrofit2.Response
 
 object ApiParser {
     private val gson = Gson()
