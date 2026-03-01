@@ -21,6 +21,7 @@ import androidx.recyclerview.widget.RecyclerView
 import com.bumptech.glide.Glide
 import com.example.calorie.data.AppDatabase
 import com.example.calorie.data.FoodPhotoEntity
+import com.example.calorie.ui.dialog.EditFoodDialogFragment
 import com.github.mikephil.charting.charts.PieChart
 import com.github.mikephil.charting.data.PieData
 import com.github.mikephil.charting.data.PieDataSet
@@ -72,7 +73,34 @@ class HomeFragment : Fragment() {
         super.onViewCreated(view, savedInstanceState)
 
         db = AppDatabase.getInstance(requireContext())
-        foodPhotoAdapter = FoodPhotoAdapter()
+        foodPhotoAdapter = FoodPhotoAdapter { photo ->
+            // 🔥 Открытие диалога редактирования
+            val dialog = EditFoodDialogFragment.newInstance(photo.id, photo.photoPath)
+            dialog.setListener(object : EditFoodDialogFragment.OnFoodEditedListener {
+                override fun onFoodUpdated() {
+                    // Обновляем данные для текущей даты
+                    val today = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    updateUIForDate(today)
+                }
+
+                override fun onFoodDeleted() {
+                    // То же обновление после удаления
+                    val today = Calendar.getInstance().apply {
+                        set(Calendar.HOUR_OF_DAY, 0)
+                        set(Calendar.MINUTE, 0)
+                        set(Calendar.SECOND, 0)
+                        set(Calendar.MILLISECOND, 0)
+                    }
+                    updateUIForDate(today)
+                }
+            })
+            dialog.show(parentFragmentManager, "EditFoodDialog")
+        }
 
         // Инициализация View
         pieChart = view.findViewById(R.id.pieCalories)
@@ -256,7 +284,9 @@ class HomeFragment : Fragment() {
     }
 }
 
-class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
+class FoodPhotoAdapter(
+    private val onPhotoClick: (FoodPhotoEntity) -> Unit = {}
+) : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
 
     private var photos = listOf<FoodPhotoEntity>()
 
@@ -264,8 +294,9 @@ class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
         private val textName: TextView = itemView.findViewById(R.id.textMealName)
         private val textNutrients: TextView = itemView.findViewById(R.id.textNutrients)
         private val imageMeal: ImageView = itemView.findViewById(R.id.imageMeal)
+        private val root: View = itemView.findViewById(R.id.root) // добавьте android:id="@+id/root" в item_meal.xml
 
-        fun bind(photo: FoodPhotoEntity) {
+        fun bind(photo: FoodPhotoEntity, onClick: (FoodPhotoEntity) -> Unit) {
             textName.text = photo.name ?: "Блюдо"
             textNutrients.text = buildString {
                 append("Калории: ${photo.calories ?: 0}\n")
@@ -284,6 +315,9 @@ class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
             } else {
                 imageMeal.setImageResource(android.R.drawable.ic_menu_gallery)
             }
+
+            // 🔥 Обработчик клика
+            root.setOnClickListener { onClick(photo) }
         }
     }
 
@@ -294,7 +328,7 @@ class FoodPhotoAdapter : RecyclerView.Adapter<FoodPhotoAdapter.ViewHolder>() {
     }
 
     override fun onBindViewHolder(holder: ViewHolder, position: Int) {
-        holder.bind(photos[position])
+        holder.bind(photos[position], onPhotoClick)
     }
 
     override fun getItemCount(): Int = photos.size
