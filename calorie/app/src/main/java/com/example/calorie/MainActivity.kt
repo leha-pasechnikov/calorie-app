@@ -3,12 +3,15 @@ package com.example.calorie
 import android.content.Intent
 import android.os.Build
 import android.os.Bundle
+import android.view.animation.AnimationUtils
 import android.widget.Toast
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.annotation.RequiresApi
 import androidx.appcompat.app.AppCompatActivity
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.example.calorie.data.AppDatabase
+import com.example.calorie.data.FoodPhotoEntity
 import com.example.calorie.databinding.ActivityMainBinding
 import kotlinx.coroutines.launch
 import java.time.LocalDateTime
@@ -25,7 +28,18 @@ class MainActivity : AppCompatActivity() {
     private val workoutFragment = WorkoutFragment()
 
     private var currentFragment: Fragment = homeFragment
-    private val REQUEST_CAMERA = 1001
+
+    // Современный способ получения результата из камеры
+    private val cameraLauncher =
+        registerForActivityResult(ActivityResultContracts.StartActivityForResult()) { result ->
+
+            if (result.resultCode == RESULT_OK) {
+                val imagePath = result.data?.getStringExtra("image_path")
+                if (imagePath != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    savePhotoToDatabase(imagePath)
+                }
+            }
+        }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -42,51 +56,62 @@ class MainActivity : AppCompatActivity() {
         // Инициализация БД
         db = AppDatabase.getInstance(this)
 
+        // Первый фрагмент
         supportFragmentManager.beginTransaction()
             .add(R.id.contentContainer, homeFragment, "home")
             .commit()
 
+        startGlowAnimation()
         setupBottomNavigation()
     }
 
-    @Deprecated("Deprecated in Java")
-    @RequiresApi(Build.VERSION_CODES.O)
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
+    // 🔵 Анимация блеска кнопки камеры
+    private fun startGlowAnimation() {
+        val glow = AnimationUtils.loadAnimation(this, R.anim.neon_glow)
+        binding.btnCamera.startAnimation(glow)
+    }
 
-        if (requestCode == REQUEST_CAMERA && resultCode == RESULT_OK) {
-            val imagePath = data?.getStringExtra("image_path")
-            if (imagePath != null) {
-                // Сохраняем фото в БД
-                lifecycleScope.launch {
-                    db.appDao().insertFoodPhoto(
-                        com.example.calorie.data.FoodPhotoEntity(
-                            photoPath = imagePath,
-                            name = "Новое блюдо",
-                            calories = 0, // Будет обновлено после API
-                            proteins = 0.0,
-                            fats = 0.0,
-                            carbs = 0.0,
-                            water = 0.0,
-                            weight = 0.0,
-                            takenDatetime = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
-                            createdAt = LocalDateTime.now().format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
-                        )
-                    )
-                }
-                Toast.makeText(this, "Фото сохранено", Toast.LENGTH_SHORT).show()
-            }
+    // 🔵 Сохранение фото в БД
+    @RequiresApi(Build.VERSION_CODES.O)
+    private fun savePhotoToDatabase(imagePath: String) {
+
+        lifecycleScope.launch {
+            db.appDao().insertFoodPhoto(
+                FoodPhotoEntity(
+                    photoPath = imagePath,
+                    name = "Новое блюдо",
+                    calories = 0,
+                    proteins = 0.0,
+                    fats = 0.0,
+                    carbs = 0.0,
+                    water = 0.0,
+                    weight = 0.0,
+                    takenDatetime = LocalDateTime.now()
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME),
+                    createdAt = LocalDateTime.now()
+                        .format(DateTimeFormatter.ISO_LOCAL_DATE_TIME)
+                )
+            )
         }
+
+        Toast.makeText(this, "Фото сохранено", Toast.LENGTH_SHORT).show()
     }
 
     private fun setupBottomNavigation() {
+
         binding.btnHome.setOnClickListener { switchFragment(homeFragment) }
+
         binding.btnSearch.setOnClickListener { switchFragment(searchFragment) }
-        binding.btnCamera.setOnClickListener {
-            startActivity(Intent(this, CameraActivity::class.java))
-        }
+
         binding.btnAnalyze.setOnClickListener { switchFragment(analyzeFragment) }
+
         binding.btnWorkout.setOnClickListener { switchFragment(workoutFragment) }
+
+        binding.btnCamera.setOnClickListener {
+            val intent = Intent(this, CameraActivity::class.java)
+            cameraLauncher.launch(intent)
+        }
+
         binding.btnProfile.setOnClickListener {
             startActivity(Intent(this, ProfileActivity::class.java))
         }
@@ -104,6 +129,7 @@ class MainActivity : AppCompatActivity() {
             }
             commit()
         }
+
         currentFragment = newFragment
     }
 }
