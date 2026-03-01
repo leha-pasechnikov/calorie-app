@@ -2,6 +2,7 @@ package com.example.calorie
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.ProgressDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -40,6 +41,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@Suppress("DEPRECATION")
 class CameraActivity : AppCompatActivity() {
 
     private lateinit var photoFile: File
@@ -171,17 +173,30 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    private var progressDialog: ProgressDialog? = null
+
+    private fun showLoadingIndicator() {
+        progressDialog = ProgressDialog.show(this, "", "Анализ фото...", true, false)
+    }
+
+    private fun hideLoadingIndicator() {
+        progressDialog?.dismiss()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private fun processCapturedImage(file: File) {
         val compressedPath = compressAndSaveImage(file.absolutePath)
         if (compressedPath != null) {
-            // 🔥 Запускаем корутину для API-запроса
-            lifecycleScope.launch(Dispatchers.IO) {
-                // 1. Отправляем на API и сохраняем результат в БД
-                sendToApiAndSave(compressedPath)
+            // 🔥 Показываем индикатор загрузки
+            showLoadingIndicator()
 
-                // 2. Возвращаем результат в MainActivity (уже в главном потоке)
+            lifecycleScope.launch(Dispatchers.IO) {
+                // 1. Ждём завершения API и записи в БД
+                val success = sendToApiAndSave(compressedPath)
+
+                // 2. Только после этого возвращаем результат
                 withContext(Dispatchers.Main) {
+                    hideLoadingIndicator()
                     returnResult(compressedPath)
                 }
             }
@@ -201,10 +216,13 @@ class CameraActivity : AppCompatActivity() {
                 }
                 val compressedPath = compressAndSaveImage(tempFile.absolutePath)
                 if (compressedPath != null) {
-                    // 🔥 Тот же вызов API
+                    showLoadingIndicator()
+
                     lifecycleScope.launch(Dispatchers.IO) {
                         sendToApiAndSave(compressedPath)
+
                         withContext(Dispatchers.Main) {
+                            hideLoadingIndicator()
                             returnResult(compressedPath)
                         }
                     }
