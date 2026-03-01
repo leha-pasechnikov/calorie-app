@@ -74,6 +74,12 @@ interface AppDao {
     @Delete
     suspend fun deleteFoodPhoto(entity: FoodPhotoEntity)
 
+    @Query("SELECT * FROM food_photos WHERE id = :id")
+    suspend fun getFoodPhotoById(id: Int): FoodPhotoEntity?
+
+    @Query("DELETE FROM food_photos WHERE id = :id")
+    suspend fun deleteFoodPhotoById(id: Int)
+
     // ================= WORKOUTS =================
     @Query("SELECT * FROM workouts ORDER BY workout_date DESC")
     suspend fun getWorkouts(): List<WorkoutEntity>

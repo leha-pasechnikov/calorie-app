@@ -31,7 +31,7 @@ class MainActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
 
         // TODO удалить перед релизом
-        val updateToday=true
+        val updateToday=false
         if (updateToday) {
             deleteDatabase("calorie.db")
         }
