@@ -62,6 +62,12 @@ dependencies {
     // Coroutines (для асинхронных операций)
     implementation(libs.jetbrains.kotlinx.coroutines.android)
 
+    // Retrofit + OkHttp для API запросов
+    implementation(libs.retrofit)
+    implementation(libs.converter.gson)
+    implementation(libs.logging.interceptor)
+
+
     testImplementation(libs.junit)
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)

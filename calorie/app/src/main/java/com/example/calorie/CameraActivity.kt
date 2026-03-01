@@ -1,7 +1,10 @@
+@file:Suppress("DEPRECATION")
+
 package com.example.calorie
 
 import android.Manifest
 import android.annotation.SuppressLint
+import android.app.ProgressDialog
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Bitmap
@@ -18,11 +21,21 @@ import androidx.appcompat.app.AppCompatActivity
 import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import androidx.core.content.FileProvider
+import androidx.lifecycle.lifecycleScope
+import com.example.calorie.api.ApiAnalyzeResult
+import com.example.calorie.api.ApiClient
+import com.example.calorie.api.ApiFoodItem
+import com.example.calorie.api.ApiParser
 import com.example.calorie.data.AppDatabase
 import com.example.calorie.data.FoodPhotoEntity
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import okhttp3.MediaType
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import okhttp3.MultipartBody
+import okhttp3.RequestBody
 import java.io.File
 import java.io.FileOutputStream
 import java.io.IOException
@@ -30,6 +43,7 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+@Suppress("DEPRECATION")
 class CameraActivity : AppCompatActivity() {
 
     private lateinit var photoFile: File
@@ -161,12 +175,33 @@ class CameraActivity : AppCompatActivity() {
         }
     }
 
+    private var progressDialog: ProgressDialog? = null
+
+    private fun showLoadingIndicator() {
+        progressDialog = ProgressDialog.show(this, "", "Анализ фото...", true, false)
+    }
+
+    private fun hideLoadingIndicator() {
+        progressDialog?.dismiss()
+    }
+
     @RequiresApi(Build.VERSION_CODES.O)
     private fun processCapturedImage(file: File) {
         val compressedPath = compressAndSaveImage(file.absolutePath)
         if (compressedPath != null) {
-            saveToDatabase(compressedPath)
-            returnResult(compressedPath)
+            // 🔥 Показываем индикатор загрузки
+            showLoadingIndicator()
+
+            lifecycleScope.launch(Dispatchers.IO) {
+                // 1. Ждём завершения API и записи в БД
+                sendToApiAndSave(compressedPath)
+
+                // 2. Только после этого возвращаем результат
+                withContext(Dispatchers.Main) {
+                    hideLoadingIndicator()
+                    returnResult(compressedPath)
+                }
+            }
         } else {
             finish()
         }
@@ -183,8 +218,16 @@ class CameraActivity : AppCompatActivity() {
                 }
                 val compressedPath = compressAndSaveImage(tempFile.absolutePath)
                 if (compressedPath != null) {
-                    saveToDatabase(compressedPath)
-                    returnResult(compressedPath)
+                    showLoadingIndicator()
+
+                    lifecycleScope.launch(Dispatchers.IO) {
+                        sendToApiAndSave(compressedPath)
+
+                        withContext(Dispatchers.Main) {
+                            hideLoadingIndicator()
+                            returnResult(compressedPath)
+                        }
+                    }
                 } else {
                     finish()
                 }
@@ -270,5 +313,125 @@ class CameraActivity : AppCompatActivity() {
         }
         setResult(RESULT_OK, resultIntent)
         finish()
+    }
+
+
+    // В companion object или как поле
+    private val apiService = ApiClient.apiService
+
+    // После compressAndSaveImage, перед returnResult:
+    @RequiresApi(Build.VERSION_CODES.O)
+    private suspend fun sendToApiAndSave(imagePath: String): Boolean {
+        val file = File(imagePath)
+        val requestFile = file.asRequestBody("image/jpeg".toMediaTypeOrNull())
+        val body = MultipartBody.Part.createFormData("file", file.name, requestFile)
+
+        return try {
+            val response = apiService.analyzeFood(body)
+            val result = ApiParser.parseAnalyzeResponse(response)
+
+            // 🔥 Все Toast — только на главном потоке!
+            withContext(Dispatchers.Main) {
+                when (result) {
+                    is ApiAnalyzeResult.Success -> {
+                        updateFoodPhotoWithAnalysis(imagePath, result.foodItems)
+                        Toast.makeText(this@CameraActivity, "✅ Анализ завершён", Toast.LENGTH_SHORT).show()
+                    }
+                    is ApiAnalyzeResult.Danger -> {
+                        updateFoodPhotoWithAnalysis(imagePath, result.foodItems)
+                        Toast.makeText(this@CameraActivity, "⚠️ ${result.message}", Toast.LENGTH_LONG).show()
+                    }
+                    is ApiAnalyzeResult.NotFound -> {
+                        saveFoodPhotoWithDefaults(imagePath, name = "Не распознано")
+                        Toast.makeText(this@CameraActivity, "🔍 ${result.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    is ApiAnalyzeResult.Error -> {
+                        saveFoodPhotoWithDefaults(imagePath, name = "Ошибка анализа")
+                        Toast.makeText(this@CameraActivity, "❌ ${result.message}", Toast.LENGTH_SHORT).show()
+                    }
+                    is ApiAnalyzeResult.HttpError -> {
+                        saveFoodPhotoWithDefaults(imagePath, name = "Сетевая ошибка")
+                        Toast.makeText(this@CameraActivity, "🌐 Ошибка ${result.code}: ${result.detail}", Toast.LENGTH_SHORT).show()
+                    }
+                }
+            }
+            true
+        } catch (e: Exception) {
+            e.printStackTrace()
+            withContext(Dispatchers.Main) {
+                saveFoodPhotoWithDefaults(imagePath, name = "Ошибка отправки")
+                Toast.makeText(this@CameraActivity, "⚠️ Не удалось связаться с сервером", Toast.LENGTH_SHORT).show()
+            }
+            true
+        }
+    }
+
+    private fun updateFoodPhotoWithAnalysis(imagePath: String, foodItems: Map<String, ApiFoodItem>) {
+        // Берём первое распознанное блюдо (можно расширить логику)
+        val (foodName, nutrition) = foodItems.entries.firstOrNull() ?: return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getInstance(this@CameraActivity)
+            val existingPhoto = db.appDao().getFoodPhotos().find { it.photoPath == imagePath }
+
+            val updatedPhoto = existingPhoto?.copy(
+                name = foodName,
+                calories = calculateCalories(nutrition),
+                proteins = nutrition.proteins,
+                fats = nutrition.fats,
+                carbs = nutrition.carbohydrates, // обратите внимание: API возвращает "carbohydrates"
+                water = nutrition.water,
+                weight = nutrition.weight.toDouble()
+            ) ?: FoodPhotoEntity(
+                photoPath = imagePath,
+                name = foodName,
+                calories = calculateCalories(nutrition),
+                proteins = nutrition.proteins,
+                fats = nutrition.fats,
+                carbs = nutrition.carbohydrates,
+                water = nutrition.water,
+                weight = nutrition.weight.toDouble(),
+                takenDatetime = CalendarHelper.getSelectedDateString("yyyy-MM-dd HH:mm:ss")
+                    ?: SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+                createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+            )
+
+            if (existingPhoto != null) {
+                db.appDao().updateFoodPhoto(updatedPhoto)
+            } else {
+                db.appDao().insertFoodPhoto(updatedPhoto)
+            }
+        }
+    }
+
+    private fun saveFoodPhotoWithDefaults(imagePath: String, name: String) {
+        CoroutineScope(Dispatchers.IO).launch {
+            val db = AppDatabase.getInstance(this@CameraActivity)
+            db.appDao().insertFoodPhoto(
+                FoodPhotoEntity(
+                    photoPath = imagePath,
+                    name = name,
+                    calories = 0,
+                    proteins = 0.0,
+                    fats = 0.0,
+                    carbs = 0.0,
+                    water = 0.0,
+                    weight = 0.0,
+                    takenDatetime = CalendarHelper.getSelectedDateString("yyyy-MM-dd HH:mm:ss")
+                        ?: SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()),
+                    createdAt = SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date())
+                )
+            )
+        }
+    }
+
+    private fun calculateCalories(nutrition: ApiFoodItem): Int {
+        // Формула: 4 ккал/г белки, 9 ккал/г жиры, 4 ккал/г углеводы
+        return (nutrition.proteins * 4 + nutrition.fats * 9 + nutrition.carbohydrates * 4).toInt()
+    }
+
+    // Extension для File
+    private fun File.asRequestBody(mediaType: MediaType?): RequestBody {
+        return RequestBody.create(mediaType, this)
     }
 }
